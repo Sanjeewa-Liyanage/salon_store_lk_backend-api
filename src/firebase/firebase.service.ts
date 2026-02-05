@@ -9,9 +9,16 @@ export class FirebaseService implements OnModuleInit {
 
   onModuleInit() {
     if (!admin.apps.length) {
-      const privateKey = this.configService
-        .get<string>('FIREBASE_PRIVATE_KEY')
-        ?.replace(/\\n/g, '\n');
+      let privateKey = this.configService.get<string>('FIREBASE_PRIVATE_KEY');
+
+      if (privateKey) {
+        // Remove surrounding double quotes if present (common in some env deployments)
+        if (privateKey.startsWith('"') && privateKey.endsWith('"')) {
+          privateKey = privateKey.slice(1, -1);
+        }
+        // Replace literal \n strings with real newlines
+        privateKey = privateKey.replace(/\\n/g, '\n');
+      }
 
       admin.initializeApp({
         credential: admin.credential.cert({
