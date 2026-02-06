@@ -74,15 +74,24 @@ export class UserService {
        }
     }
 
-    async findOne(id: string): Promise<any> {
+    async findOne(id: string) {
     const doc = await this.getUsersCollection().doc(id).get();
-    
+
     if (!doc.exists) return null;
+
+    const user = doc.data();
+
+    if (!user) return null;
+
     
-    
-    const user = doc.data(); 
-    return user; 
-    }
+    const { password, refreshToken, ...safeUser } = user;
+
+    return {
+        id: doc.id,
+        ...safeUser,
+    };
+}
+
 
     async updateRefreshToken(userId: string, refreshToken: string) {
         let hashedRefreshToken: string | null = null;
@@ -142,5 +151,5 @@ export class UserService {
         const { password: _, ...result } = user;
         return result;
     }
-    
+
 }
