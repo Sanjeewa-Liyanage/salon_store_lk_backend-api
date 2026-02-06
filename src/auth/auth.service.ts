@@ -54,4 +54,19 @@ export class AuthService {
             refreshToken: rt
         }
     }
+    async login(email: string, password: string) {
+        const user = await this.userService.validateUser(email, password);
+
+        if (!user) {
+            throw new Error('Invalid credentials');
+        }
+        const tokens = await this.getTokens(user.id, user.email, user.role as UserRole);
+        await this.userService.updateRefreshToken(user.id, tokens.refreshToken);
+        return {
+            user: {
+                id: user.id,
+            },
+            backendTokens: tokens
+        };
+    }
 }

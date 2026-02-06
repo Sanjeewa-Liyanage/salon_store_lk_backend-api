@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
 import { userConverter } from './helpers/firestoredata-converter';
 import { User,SalonOwner } from './schema/user.schema';
 import * as bcrypt from 'bcrypt';
@@ -18,6 +18,9 @@ export class UserService {
 
     async createUser(dto: UserRegistrationDto) {
         const collection = this.getUsersCollection();
+        if(await this.findByEmail(dto.email)){
+            throw new ConflictException('Email already in use');
+        }
 
         const role = (dto.role as UserRole) || UserRole.CUSTOMER;
         const userCode = await this.generateUserCode(role); // Generate custom ID
@@ -57,6 +60,18 @@ export class UserService {
 
         await collection.add(newOwner); 
         return newOwner;
+    }
+
+    async findByEmail(email: string): Promise<any> {
+        const querySnapshot = await this.getUsersCollection()
+            .where('email', '==', email)
+            .get();
+        if (querySnapshot.empty) return null;
+        const doc = querySnapshot.docs[0];
+       return{
+            id: doc.id,
+            ...doc.data()
+       }
     }
 
     async findOne(id: string): Promise<any> {
@@ -115,5 +130,16 @@ export class UserService {
 
             return userCode;
         });
+    }
+
+    async validateUser(email:string, password:string):Promise<any>{
+        const user = await this.findByEmail(email);
+        if(!user) return null;
+
+        const isPasswordValid = await bcrypt.compare(password, user.password);
+        if(!isPasswordValid) return null;
+        
+        const { password: _, ...result } = user;
+        return result;
     }
 }
