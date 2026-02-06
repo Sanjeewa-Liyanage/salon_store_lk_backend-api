@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { UserService } from '../user/user.service';
 import { JwtService } from '@nestjs/jwt';
 import { UserRegistrationDto } from '../user/dto/userregister.dto';
@@ -58,7 +58,7 @@ export class AuthService {
         const user = await this.userService.validateUser(email, password);
 
         if (!user) {
-            throw new Error('Invalid credentials');
+            throw new BadRequestException('Invalid credentials');
         }
         const tokens = await this.getTokens(user.id, user.email, user.role as UserRole);
         await this.userService.updateRefreshToken(user.id, tokens.refreshToken);
