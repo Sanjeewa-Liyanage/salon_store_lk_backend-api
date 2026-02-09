@@ -14,9 +14,11 @@ export class UserController {
     return this.userService.findOne(req['user']['sub']);
   }
 
-  @Get('verify-email')
+ 
   @Get('verify-email')
   async verifyEmail(@Query('token') token: string, @Res() res: any) {
+    if (!token) return res.redirect('https://salonstore.lk/verify-failed');
+
     const user = await this.userService.findByVerificationToken(token);
     if (!user) return res.redirect('https://salonstore.lk/verify-failed');
 
