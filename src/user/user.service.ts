@@ -5,16 +5,24 @@ import * as bcrypt from 'bcrypt';
 import { UserRegistrationDto } from './dto/userregister.dto';
 import { UserRole } from './enum/userrole.enum';
 import { FirebaseService } from '../firebase/firebase.service';
-
+import { randomBytes } from 'crypto';
+import { ResendMailService } from '../common/mail/resendmail.service';
 @Injectable()
 export class UserService {
-    constructor(private firebaseService:FirebaseService){}
+    constructor(private firebaseService:FirebaseService,
+        private resendMailService: ResendMailService
+    ){}
 
     private getUsersCollection(){
         return this.firebaseService.getFirestore()
             .collection('users')
             .withConverter(userConverter);
     }
+
+    private generateVerificationToken():string{
+        return randomBytes(32).toString('hex');
+    }
+
 
     async createUser(dto: UserRegistrationDto) {
         const collection = this.getUsersCollection();
@@ -28,6 +36,9 @@ export class UserService {
         const userData:Partial<User> = {
             ...dto,
             isActive: true,
+            isVerified: false,
+            emailVerificationToken: this.generateVerificationToken(),
+            emailVerificationTokenExpires: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
             role: role,
             registeredAt: new Date(),
             userCode: userCode,
@@ -42,6 +53,7 @@ export class UserService {
         const ref = await collection.add(newUser);
         newUser.id = ref.id;
         const {password, ...result} = newUser;
+        await this.resendMailService.sendVerificationEmail(newUser.email!, newUser.emailVerificationToken!);
         return result;
     }
 
@@ -54,11 +66,14 @@ export class UserService {
         }
 // Generate userCode for Salon Owner
         data.userCode = await this.generateUserCode(UserRole.SALON_OWNER);
-
+        data.isVerified = false;
+        data.emailVerificationToken = this.generateVerificationToken();
+        data.emailVerificationTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours from now
         
         const newOwner = new SalonOwner(data);
 
         await collection.add(newOwner); 
+        await this.resendMailService.sendVerificationEmail(newOwner.email!, newOwner.emailVerificationToken!);
         return newOwner;
     }
 
@@ -151,5 +166,36 @@ export class UserService {
         const { password: _, ...result } = user;
         return result;
     }
+    // methods for email verification
+    async findByVerificationToken(token: string) {
+    const snapshot = await this.getUsersCollection()
+        .where('emailVerificationToken', '==', token)
+        .limit(1)
+        .get();
+
+    if (snapshot.empty) return null;
+
+    const doc = snapshot.docs[0];
+    const user = doc.data();
+
+    if (!user.emailVerificationTokenExpires || user.emailVerificationTokenExpires < new Date()) {
+        return null;
+    }
+
+    return { id: doc.id, ...user };
+    }
+
+    async verifyUser(userId: string) {
+        await this.getUsersCollection()
+            .doc(userId)
+            .update({
+            isVerified: true,
+            emailVerificationToken: null,
+            emailVerificationTokenExpires: null,
+        });
+    }
+
+
+
 
 }
