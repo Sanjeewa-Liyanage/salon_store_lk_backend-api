@@ -69,4 +69,14 @@ export class AuthService {
             backendTokens: tokens
         };
     }
+    async forgotPasswordOtp(email: string) {
+
+       const res = await this.userService.sendOtpToEmail(email);
+       if (!res) {
+        throw new BadRequestException('Failed to send OTP');
+       }
+         return {
+            message: 'OTP sent to registered email if user exists'
+         }
+    }
 }

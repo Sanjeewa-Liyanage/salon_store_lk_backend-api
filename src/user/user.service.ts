@@ -7,6 +7,7 @@ import { UserRole } from './enum/userrole.enum';
 import { FirebaseService } from '../firebase/firebase.service';
 import { randomBytes } from 'crypto';
 import { ResendMailService } from '../common/mail/resendmail.service';
+import { OtpGeneratorHelper } from './helpers/otpgenerator.helper';
 @Injectable()
 export class UserService {
     constructor(private firebaseService:FirebaseService,
@@ -200,8 +201,24 @@ export class UserService {
             emailVerificationTokenExpires: null,
         });
     }
+    //? methods for password reset 
+    async sendOtpToEmail(email: string): Promise<boolean> {
+        const user = await this.findByEmail(email);
+        if (!user) {
+            return false;
+        }
+        const otp = OtpGeneratorHelper.generateOtp();
+        await this.getUsersCollection()            
+        .doc(user.id)
+        .update({
+            otp: otp,
+            otpExpires: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes
+        });
+       
+        await this.resendMailService.sendPasswordResetEmail(user.email, otp);
 
-
+        return true;
+    }
 
 
 }
