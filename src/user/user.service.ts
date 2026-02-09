@@ -178,12 +178,18 @@ export class UserService {
     const doc = snapshot.docs[0];
     const user = doc.data();
 
-    if (!user.emailVerificationTokenExpires || user.emailVerificationTokenExpires < new Date()) {
+    const expires = user.emailVerificationTokenExpires instanceof Date
+        ? user.emailVerificationTokenExpires
+        : (user.emailVerificationTokenExpires as any)?.toDate?.();
+
+    if (!expires || expires < new Date()) {
+        console.log("TOKEN EXPIRED");
         return null;
     }
 
     return { id: doc.id, ...user };
     }
+
 
     async verifyUser(userId: string) {
         await this.getUsersCollection()
