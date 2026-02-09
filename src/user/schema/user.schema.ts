@@ -15,6 +15,8 @@ export class UserSchema {
     isActive?: boolean;
     status?: UserStatus;
     refreshToken?: string;
+    emailVerificationToken?: string;
+    emailVerificationTokenExpires?: Date;
     
 // optional 
     businessLicense?: string;
