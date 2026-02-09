@@ -15,26 +15,16 @@ export class UserController {
   }
 
   @Get('verify-email')
+  @Get('verify-email')
   async verifyEmail(@Query('token') token: string, @Res() res: any) {
-    if (!token) {
-      res.status(400).send('Invalid verification link');
-      return;
-    }
+    const user = await this.userService.findByVerificationToken(token);
+    if (!user) return res.redirect('https://salonstore.lk/verify-failed');
 
-    const snapshot = await this.userService.findByVerificationToken(token);
+    await this.userService.verifyUser(user.id);
 
-    if (!snapshot) {
-      res.status(400).send('Verification link is invalid or expired');
-      return;
-    }
-
-    await this.userService.verifyUser(snapshot.id);
-
-    res.send(`
-      <h2>Email verified successfully 🎉</h2>
-      <p>You can now log in to SalonStore.</p>
-    `);
+    return res.redirect('https://salonstore.lk/verify-success');
   }
+
 
  
 }
