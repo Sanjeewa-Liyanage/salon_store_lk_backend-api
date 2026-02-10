@@ -17,6 +17,8 @@ export class UserSchema {
     refreshToken?: string;
     emailVerificationToken?: string;
     emailVerificationTokenExpires?: Date;
+    otp?: string;
+    otpExpires?: Date;
     
 // optional 
     businessLicense?: string;

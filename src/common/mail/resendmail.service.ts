@@ -51,17 +51,70 @@ export class ResendMailService {
         `;
     }
 
- async sendVerificationEmail(email: string, token: string) {
-  const verificationUrl =
-    `https://salonstore.lk/auth/verify-email?token=${token}`;
+    async sendVerificationEmail(email: string, token: string) {
+    const verificationUrl =
+        `https://salonstore.lk/auth/verify-email?token=${token}`;
 
-  await this.resend.emails.send({
-    from: 'SalonStore <noreply@salonstore.lk>',
-    to: email,
-    subject: 'Verify your SalonStore account',
-    html: this.getWelcomeEmailTemplate(email, verificationUrl),
-  });
-}
+    await this.resend.emails.send({
+        from: 'SalonStore <noreply@salonstore.lk>',
+        to: email,
+        subject: 'Verify your SalonStore account',
+        html: this.getWelcomeEmailTemplate(email, verificationUrl),
+    });
+    }
+
+    private sendOtpEmail(otp: string) {
+       return `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                .container { max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px; background-color: #f9f9f9; }
+                .header { background-color: #2c3e50; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+                .content { padding: 30px; background-color: white; }
+                .otp-box { background-color: #ecf0f1; padding: 20px; margin: 20px 0; text-align: center; border-radius: 8px; }
+                .otp-code { font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #2c3e50; }
+                .footer { margin-top: 20px; text-align: center; font-size: 0.85em; color: #7f8c8d; }
+                .warning { color: #e74c3c; font-size: 0.9em; margin-top: 15px; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>Your OTP Code</h1>
+                </div>
+                <div class="content">
+                    <p>Hi,</p>
+                    <p>You have requested a One-Time Password (OTP) to proceed with your action on Salon Store LK.</p>
+                    <div class="otp-box">
+                        <p style="margin: 0; font-size: 14px; color: #7f8c8d;">Your OTP Code is:</p>
+                        <p class="otp-code">${otp}</p>
+                    </div>
+                    <p>This code will expire in 10 minutes for security purposes.</p>
+                    <p class="warning">⚠️ Please do not share this code with anyone. Our team will never ask for your OTP.</p>
+                    <p>If you didn't request this code, please ignore this email or contact our support team.</p>
+                    <p>Best Regards,<br>The Salon Store LK Team</p>
+                </div>
+                <div class="footer">
+                    <p>&copy; ${new Date().getFullYear()} Salon Store LK. All rights reserved.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        `;
+
+       
+    }
+    async sendPasswordResetEmail(email: string, otp: string) {
+
+        await this.resend.emails.send({
+            from: 'SalonStore <noreply@salonstore.lk>',
+            to: email,
+            subject: 'Password Reset - Salon Store LK',
+            html: this.sendOtpEmail(otp),
+        })
+    }
 
 
 

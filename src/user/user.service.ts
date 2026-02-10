@@ -7,6 +7,7 @@ import { UserRole } from './enum/userrole.enum';
 import { FirebaseService } from '../firebase/firebase.service';
 import { randomBytes } from 'crypto';
 import { ResendMailService } from '../common/mail/resendmail.service';
+import { OtpGeneratorHelper } from './helpers/otpgenerator.helper';
 @Injectable()
 export class UserService {
     constructor(private firebaseService:FirebaseService,
@@ -200,8 +201,48 @@ export class UserService {
             emailVerificationTokenExpires: null,
         });
     }
+    //? methods for password reset 
+    async sendOtpToEmail(email: string): Promise<boolean> {
+        const user = await this.findByEmail(email);
+        if (!user) {
+            return false;
+        }
+        const otp = OtpGeneratorHelper.generateOtp();
+        await this.getUsersCollection()            
+        .doc(user.id)
+        .update({
+            otp: otp,
+            otpExpires: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes
+        });
+       
+        await this.resendMailService.sendPasswordResetEmail(user.email, otp);
 
+        return true;
+    }
 
+    async verifyOtp(email: string, otp: string): Promise<boolean> {
+        const snapshot = await this.getUsersCollection()
+            .where('email', '==', email)
+            .where('otp', '==', otp)
+            .where('otpExpires', '>', new Date())
+            .get();
+        
+        return !snapshot.empty;
+    }
 
+    async updatePassword(email: string, newPasword: string): Promise<void> {
+        const user = await this.findByEmail(email);
+        if (!user) {
+            throw new Error('User not found');
+        }
+        const hashedPassword = await bcrypt.hash(newPasword, 10);
+        await this.getUsersCollection()
+            .doc(user.id)
+            .update({
+                password: hashedPassword,
+                otp: null,
+                otpExpires: null,
+            });
+    }
 
 }
