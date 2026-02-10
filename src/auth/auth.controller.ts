@@ -1,8 +1,11 @@
-import { Controller, Post, Body } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Req } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { UserRegistrationDto } from '../user/dto/userregister.dto';
 import { loginDto } from '../user/dto/login.dto';
 import { ForgetPasswordDto } from '../user/dto/forgetPaswword.dto';
+import { Auth } from 'firebase-admin/auth';
+import { AuthGuard } from '@nestjs/passport';
+import { ForgotPasswordGuard } from './guards/forgotpw.guard';
 
 @Controller('auth')
 export class AuthController {
@@ -20,5 +23,18 @@ export class AuthController {
     forgotPassword(@Body() dto: ForgetPasswordDto) {
         return this.authService.forgotPasswordOtp(dto.email);
     }
+    @Post('verify-otp')
+    @UseGuards(ForgotPasswordGuard)
+    verifyOtp(@Req() req: Request, @Body() body: { otp: string }) {
+        const email = req['user']['email'];
+        return this.authService.verifyOtp(email, body.otp);
+    }
+    @Post('reset-password')
+    @UseGuards(ForgotPasswordGuard)
+    resetPassword(@Req() req: Request, @Body() body: { newPassword: string }) {
+        const email = req['user']['email'];
+        return this.authService.resetPassword(email, body.newPassword);
+    }
+
     
 }

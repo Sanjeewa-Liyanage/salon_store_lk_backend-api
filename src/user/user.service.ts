@@ -220,5 +220,29 @@ export class UserService {
         return true;
     }
 
+    async verifyOtp(email: string, otp: string): Promise<boolean> {
+        const snapshot = await this.getUsersCollection()
+            .where('email', '==', email)
+            .where('otp', '==', otp)
+            .where('otpExpires', '>', new Date())
+            .get();
+        
+        return !snapshot.empty;
+    }
+
+    async updatePassword(email: string, newPasword: string): Promise<void> {
+        const user = await this.findByEmail(email);
+        if (!user) {
+            throw new Error('User not found');
+        }
+        const hashedPassword = await bcrypt.hash(newPasword, 10);
+        await this.getUsersCollection()
+            .doc(user.id)
+            .update({
+                password: hashedPassword,
+                otp: null,
+                otpExpires: null,
+            });
+    }
 
 }

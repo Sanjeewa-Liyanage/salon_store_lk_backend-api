@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { UserService } from '../user/user.service';
 import { JwtService } from '@nestjs/jwt';
 import { UserRegistrationDto } from '../user/dto/userregister.dto';
@@ -75,8 +75,33 @@ export class AuthService {
        if (!res) {
         throw new BadRequestException('Failed to send OTP');
        }
+        const token = await this.jwtService.signAsync({ email }, {
+        secret: process.env.JWT_SECRET_KEY, 
+        expiresIn: '15m'
+       });
          return {
-            message: 'OTP sent to registered email if user exists'
+                token,
+                message: 'OTP sent to registered email if user exists'
          }
+    }
+    async verifyOtp(email: string, otp: string) {
+        const isValid = await this.userService.verifyOtp(email, otp);
+        
+        if (!isValid) {
+            throw new UnauthorizedException('Invalid or expired OTP');
+        }
+        const verifiedToken = await this.jwtService.signAsync({ email }, {
+            secret: process.env.JWT_SECRET_KEY,
+            expiresIn: '15m'
+        });
+        return {
+            message: 'OTP verified successfully',
+            verifiedToken
+        };
+    }
+
+    async resetPassword(email: string, newPassword: string) {
+        await this.userService.updatePassword(email, newPassword);
+        return { message: 'Password reset successfully' };
     }
 }
