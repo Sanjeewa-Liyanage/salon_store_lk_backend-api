@@ -8,6 +8,7 @@ import { FirebaseService } from '../firebase/firebase.service';
 import { randomBytes } from 'crypto';
 import { ResendMailService } from '../common/mail/resendmail.service';
 import { OtpGeneratorHelper } from './helpers/otpgenerator.helper';
+import { UserUpdateDto } from './dto/user-update.dto';
 @Injectable()
 export class UserService {
     constructor(private firebaseService:FirebaseService,
@@ -244,5 +245,30 @@ export class UserService {
                 otpExpires: null,
             });
     }
+        async updateUser(id: string, updateDto: UserUpdateDto):Promise<boolean>{
+        const user = await this.findOne(id);
+        if(!user) return false;
 
-}
+        if (updateDto.email && updateDto.email !== user.email) {
+            const existingUser = await this.findByEmail(updateDto.email);
+            if (existingUser) {
+                throw new ConflictException('Email already in use');
+            }
+        }
+
+        const updateData: any = { ...updateDto };
+        Object.keys(updateData).forEach(key => updateData[key] === undefined && delete updateData[key]);
+
+        if (Object.keys(updateData).length > 0) {
+            await this.getUsersCollection()
+                .doc(id)
+                .update(updateData);
+        }
+
+        return true;
+    }
+
+
+    }
+
+

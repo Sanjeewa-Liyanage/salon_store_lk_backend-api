@@ -3,6 +3,7 @@ import { UserService } from '../user/user.service';
 import { JwtService } from '@nestjs/jwt';
 import { UserRegistrationDto } from '../user/dto/userregister.dto';
 import { UserRole } from '../user/enum/userrole.enum';
+import { UserUpdateDto } from '../user/dto/user-update.dto';
 
 @Injectable()
 export class AuthService {
@@ -103,5 +104,13 @@ export class AuthService {
     async resetPassword(email: string, newPassword: string) {
         await this.userService.updatePassword(email, newPassword);
         return { message: 'Password reset successfully' };
+    }
+
+    async updateUser(id: string, updateDto: UserUpdateDto) {
+            const updatedUser = await this.userService.updateUser(id, updateDto);
+            if (!updatedUser) {
+                throw new BadRequestException('Failed to update user');
+            }
+            return { message: 'User updated successfully' };
     }
 }

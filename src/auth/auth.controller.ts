@@ -6,6 +6,7 @@ import { ForgetPasswordDto } from '../user/dto/forgetPaswword.dto';
 import { Auth } from 'firebase-admin/auth';
 import { AuthGuard } from '@nestjs/passport';
 import { ForgotPasswordGuard } from './guards/forgotpw.guard';
+import { UserUpdateDto } from '../user/dto/user-update.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -34,6 +35,12 @@ export class AuthController {
     resetPassword(@Req() req: Request, @Body() body: { newPassword: string }) {
         const email = req['user']['email'];
         return this.authService.resetPassword(email, body.newPassword);
+    }
+    @Post('update-profile')
+    @UseGuards(AuthGuard('jwt'))
+    updateUser(@Req() req: Request, @Body() updateDto: UserUpdateDto) {
+        const userId = req['user']['sub'];
+        return this.authService.updateUser(userId, updateDto);
     }
 
     
