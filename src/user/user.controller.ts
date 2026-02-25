@@ -14,7 +14,8 @@ export class UserController {
     return this.userService.findOne(req['user']['sub']);
   }
 
- 
+  //todo need to move this to auth controller
+
   @Get('verify-email')
   async verifyEmail(@Query('token') token: string, @Res() res: any) {
     if (!token) return res.redirect('https://salonstore.lk/verify-failed');

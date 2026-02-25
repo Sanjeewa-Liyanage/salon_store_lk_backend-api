@@ -55,3 +55,52 @@ You can use these JSON payloads to test the `POST \/auth\/register` or `POST \/u
   "role": "ADMIN"
 }
 ```
+
+# Test Data for Salon Management
+
+## 1. Create a Salon (POST /salon/create)
+
+```json
+{
+  "salonName": "Luxe Salon",
+  "description": "Premium beauty services",
+  "address": "123 Galle Road",
+  "city": "Colombo",
+  "phoneNumber": "+94771234567",
+  "isActive": true,
+  "openingTime": "2024-01-01T09:00:00.000Z",
+  "closingTime": "2024-01-01T18:00:00.000Z",
+  "services": [
+    {
+      "name": "Haircut",
+      "price": 2500,
+      "duration": 60
+    }
+  ]
+}
+```
+
+## 2. Update a Salon (PATCH /salon/update/:id)
+
+You can send any combination of fields. Note that nested objects like `services` will be replaced entirely if provided.
+
+```json
+{
+  "salonName": "Luxe Salon & Spa",
+  "phoneNumber": "+94779876543",
+  "services": [
+    {
+      "name": "Haircut",
+      "price": 3000,
+      "duration": 60 
+    },
+    {
+      "name": "Facial",
+      "price": 5000,
+      "duration": 90
+    }
+  ],
+  "isActive": false
+}
+```
+
