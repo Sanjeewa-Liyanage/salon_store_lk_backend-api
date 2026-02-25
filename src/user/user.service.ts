@@ -1,4 +1,4 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { userConverter } from './helpers/firestoredata-converter';
 import { User,SalonOwner } from './schema/user.schema';
 import * as bcrypt from 'bcrypt';
@@ -9,6 +9,7 @@ import { randomBytes } from 'crypto';
 import { ResendMailService } from '../common/mail/resendmail.service';
 import { OtpGeneratorHelper } from './helpers/otpgenerator.helper';
 import { UserUpdateDto } from './dto/user-update.dto';
+import { UserStatus } from './enum/userstatus.enum';
 @Injectable()
 export class UserService {
     constructor(private firebaseService:FirebaseService,
@@ -245,7 +246,8 @@ export class UserService {
                 otpExpires: null,
             });
     }
-        async updateUser(id: string, updateDto: UserUpdateDto):Promise<boolean>{
+
+    async updateUser(id: string, updateDto: UserUpdateDto):Promise<boolean>{
         const user = await this.findOne(id);
         if(!user) return false;
 
@@ -266,6 +268,33 @@ export class UserService {
         }
 
         return true;
+    }
+
+    async suspendUser(id:string){
+        const collection = this.getUsersCollection();
+        const userDoc = await collection.doc(id).get();
+        if (!userDoc.exists) {
+            throw new NotFoundException('User not found');
+        }
+        await collection.doc(id).update({
+            isActive: false,
+            status: UserStatus.SUSPENDED
+        });
+        return { message: 'User suspended successfully', userId: id };
+    }
+
+    async unsuspendUser(id:string){
+        const collection = this.getUsersCollection();
+        const userDoc = await collection.doc(id).get();
+        if (!userDoc.exists) {
+            throw new NotFoundException('User not found');
+        }
+        await collection.doc(id).update({
+            isActive: true,
+            status: UserStatus.ACTIVE
+        });
+        return { message: 'User unsuspended successfully', userId: id };
+        
     }
 
 
