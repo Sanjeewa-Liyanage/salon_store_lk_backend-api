@@ -7,6 +7,12 @@ import { PlaygroundModule } from './playground/playground.module';
 import { AuthModule } from './auth/auth.module';
 import { UserModule } from './user/user.module';
 import { SalonModule } from './salon/salon.module';
+import { AdsController } from './ads/ads.controller';
+import { AdsService } from './ads/ads.service';
+import { AdsModule } from './ads/ads.module';
+import { PlanController } from './plan/plan.controller';
+import { PlanService } from './plan/plan.service';
+import { PlanModule } from './plan/plan.module';
 
 @Module({
   imports: [
@@ -17,9 +23,11 @@ import { SalonModule } from './salon/salon.module';
     PlaygroundModule,
     AuthModule,
     UserModule,
-    SalonModule
+    SalonModule,
+    AdsModule,
+    PlanModule
   ],
-  controllers: [AppController],
-  providers: [AppService],
+  controllers: [AppController, AdsController, PlanController],
+  providers: [AppService, AdsService, PlanService],
 })
 export class AppModule {}

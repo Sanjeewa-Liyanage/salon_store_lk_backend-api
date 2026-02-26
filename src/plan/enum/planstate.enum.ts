@@ -1,0 +1,7 @@
+export enum PlanState {
+    ACTIVE = 'ACTIVE',
+    INACTIVE = 'INACTIVE',
+    EXPIRED = 'EXPIRED',
+    CANCELLED = 'CANCELLED',
+    COMING_SOON = 'COMING_SOON',
+}

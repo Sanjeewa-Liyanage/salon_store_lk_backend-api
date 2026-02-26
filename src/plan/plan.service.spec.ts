@@ -1,22 +1,18 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { SalonService } from './salon.service';
-//@ts-ignore
-describe('SalonService', () => {
-  let service: SalonService;
-//@ts-ignore
+import { PlanService } from './plan.service';
+
+describe('PlanService', () => {
+  let service: PlanService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [SalonService],
+      providers: [PlanService],
     }).compile();
 
-    service = module.get<SalonService>(SalonService);
+    service = module.get<PlanService>(PlanService);
   });
-//@ts-ignore
 
   it('should be defined', () => {
-    //@ts-ignore
-
     expect(service).toBeDefined();
   });
 });
