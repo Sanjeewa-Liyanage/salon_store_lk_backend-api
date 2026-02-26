@@ -157,4 +157,17 @@ export class PlanService {
             id: id
         };
     }
+    async getPlanById(id: string) {
+        const collection = this.getPlanCollection();
+        const docRef = collection.doc(id);
+        const doc = await docRef.get();
+        if (!doc.exists) {
+            throw new NotFoundException(`Plan with ID ${id} not found`);
+        }
+        return {
+            id: doc.id,
+            ...doc.data()
+        };
+    }
+    
 }

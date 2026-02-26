@@ -47,4 +47,9 @@ export class PlanController {
         return this.planService.deletePlan(id);
     }
 
+    @Get(':id')
+    async getPlanById(@Param('id') id: string) {
+        return this.planService.getPlanById(id);
+    }
+
 }
