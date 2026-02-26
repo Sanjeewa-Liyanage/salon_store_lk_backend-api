@@ -71,4 +71,14 @@ export class SalonController {
         return this.salonService.updateSalonStatus(id, status);
     }
 
+    @Patch('activate/:id')
+    @UseGuards(AuthGuard('jwt'), RolesGuard)
+    @Roles(UserRole.ADMIN)
+    @ApiOperation({ summary: 'Activate a salon (Admin only)' })
+    @ApiResponse({ status: 200, description: 'The salon has been successfully activated.'})
+    @ApiResponse({ status: 403, description: 'Access denied. Admin role required.'})
+    async activateSalon(@Param('id') id: string) {
+        return this.salonService.activateSalon(id);
+    }
+
 }

@@ -34,7 +34,7 @@ export class PlaygroundController {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SalonStore API Tester</title>
+    <title>WebWizards API Tester</title>
     <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
     <style>
         .api-tester { background-color: #f5f5f5; padding: 20px; border-radius: 5px; }
@@ -46,7 +46,7 @@ export class PlaygroundController {
 </head>
 <body>
     <div class="container mt-5 api-tester">
-        <h2>WebWizards Backend API Tester</h2>
+        <h2>WebWizards API Tester</h2>
         <div class="row">
             <div class="col-md-6">
                 <div class="api-tester">
@@ -70,11 +70,11 @@ export class PlaygroundController {
 
                     <div class="form-group">
                         <label for="data">Body (JSON):</label>
-                        <textarea class="form-control" id="data" rows="5" placeholder='{"key": "value"}' oninput="generateAxiosCode()"></textarea>
+                        <textarea class="form-control" id="data" rows="6" placeholder='{"key": "value"}' oninput="generateAxiosCode()"></textarea>
                     </div>
                     <div class="form-group">
                         <label for="headers">Headers (JSON):</label>
-                        <textarea class="form-control" id="headers" rows="2" oninput="generateAxiosCode()">{
+                        <textarea class="form-control" id="headers" rows="6" oninput="generateAxiosCode()">{
     "Authorization": "Bearer YOUR_DEFAULT_TOKEN"
 }</textarea>
                     </div>
