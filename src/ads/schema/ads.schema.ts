@@ -31,7 +31,7 @@ export class Ad{
 
     constructor(partial: Partial<Ad>) {
         this.status = AdStatus.PENDING_APPROVAL
-        this.paymentStatus = PaymentStatus.PENDING;
+        this.paymentStatus = PaymentStatus.NOTVERIFIED;
         this.rejectionReason = '';
         this.approvalDate = undefined;
         this.paymentProofUrl = undefined;
