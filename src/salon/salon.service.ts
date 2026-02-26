@@ -1,15 +1,18 @@
-import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { GeocodingService } from '../common/services/geocoding.service';
 import { FirebaseService } from '../firebase/firebase.service';
 import { salonConverter } from './helpers/salon.converter';
 import { SalonCreateDto } from './dto/salon-create.dto';
 import { SalonStatus } from './enum/salonstatus.enum';
+import { stat } from 'fs';
+import { UserService } from '../user/user.service';
 
 @Injectable()
 export class SalonService {
     constructor(
         private geocodingService: GeocodingService,
-        private firebaseService: FirebaseService
+        private firebaseService: FirebaseService,
+        private userService: UserService
     ){}
 
     private getSalonsCollection(){
@@ -37,6 +40,13 @@ export class SalonService {
     }
     async createSalon(dto: SalonCreateDto, ownerId: string) {
         const collection = this.getSalonsCollection();
+        //check owner is verified or not
+
+       const isVerifiedOwner = await this.userService.checkVerified(ownerId);
+       if(!isVerifiedOwner){
+            throw new ForbiddenException("Owner is Not Verified")
+       }
+        
 
         const coordinates = await this.geocodingService.getCoordinates(dto.address, dto.city);
 
@@ -105,7 +115,37 @@ export class SalonService {
         const snapshot = await collection.where('ownerId', '==', ownerId).get();
         return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     }
+
+    async checkOwnership(id: string, userId: string): Promise<boolean> {
+        const snapshot = await this.getSalonsCollection().doc(id).get();
+        if (!snapshot.exists) {
+            return false;
+        }
+        const salonData = snapshot.data();
+        return salonData?.ownerId === userId;
+    }
+
+
     
+    //check salon is ready to post add
+    async validateSalonForAd(salonId: string, userId: string): Promise<void> {
+        const snapshot = await this.getSalonsCollection().doc(salonId).get();
+        if (!snapshot.exists) {
+            throw new NotFoundException('Salon not found');
+        }
+
+        const salon = snapshot.data();
+
+        if (salon?.ownerId !== userId) {
+            throw new UnauthorizedException('You are not authorized to create an ad for this salon');
+        }
+        if (salon?.status !== SalonStatus.ACTIVE) {
+            throw new BadRequestException('Salon is not active please contact Support');
+        }
+    }
+
+
+
     async suspendSalon(id: string) {
         const collection = this.getSalonsCollection();
         const salonDoc = await collection.doc(id).get();
@@ -144,6 +184,19 @@ export class SalonService {
         });
         return { message: `Salon status updated to ${status}`, salonId: id, status };
     }
-    
+
+
+    async activateSalon(id:string){
+        const collection = this.getSalonsCollection(); 
+        const salonDoc = await collection.doc(id).get();
+        if (!salonDoc.exists) {
+            throw new NotFoundException('Salon not found');
+        }
+        await collection.doc(id).update({
+            status: SalonStatus.ACTIVE,
+            updatedAt: new Date()
+        })
+        return { message: 'Salon activated successfully'};
+    }
     
 }

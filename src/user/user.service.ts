@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { userConverter } from './helpers/firestoredata-converter';
 import { User,SalonOwner } from './schema/user.schema';
 import * as bcrypt from 'bcrypt';
@@ -296,6 +296,22 @@ export class UserService {
         return { message: 'User unsuspended successfully', userId: id };
         
     }
+
+    async checkVerified(id: string): Promise<boolean> {
+    const doc = await this.getUsersCollection().doc(id).get();
+
+        if (!doc.exists) {
+            throw new NotFoundException(`User with id "${id}" not found`);
+        }
+
+        const data = doc.data();
+
+        if (!data) {
+            throw new InternalServerErrorException('User data is unavailable');
+        }
+
+        return data.isVerified === true;
+        }
 
 
     }

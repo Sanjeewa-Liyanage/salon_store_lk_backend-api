@@ -170,4 +170,8 @@ export class PlanService {
         };
     }
     
+    public async checkActive (id:string): Promise<boolean> {
+        const doc = await this.getPlanCollection().doc(id).get();
+        return doc.exists && doc.data()?.state === 'ACTIVE';
+    }
 }
