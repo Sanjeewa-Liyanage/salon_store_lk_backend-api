@@ -42,6 +42,13 @@ export class AuthController {
         const userId = req['user']['sub'];
         return this.authService.updateUser(userId, updateDto);
     }
+    @Post('refresh')
+    @UseGuards(AuthGuard('jwt-refresh'))  // uses RtStrategy
+    refreshTokens(@Req() req: Request) {
+        const userId = req['user']['sub'];
+        const refreshToken = req['user']['refreshToken'];
+        return this.authService.refreshTokens(userId, refreshToken);
+    }
 
     
 }
