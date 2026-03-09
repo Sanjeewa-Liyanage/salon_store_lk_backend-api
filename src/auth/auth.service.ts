@@ -4,7 +4,7 @@ import { JwtService } from '@nestjs/jwt';
 import { UserRegistrationDto } from '../user/dto/userregister.dto';
 import { UserRole } from '../user/enum/userrole.enum';
 import { UserUpdateDto } from '../user/dto/user-update.dto';
-
+import * as bcrypt from 'bcrypt';
 @Injectable()
 export class AuthService {
     constructor(
@@ -41,11 +41,11 @@ export class AuthService {
 
         const [at, rt] = await Promise.all([
             this.jwtService.signAsync(payload, {
-                secret: process.env.JWT_SECRET_KEY, 
+                secret: process.env.JWT_SECRET_KEY,
                 expiresIn: '15m'
             }),
             this.jwtService.signAsync(payload, {
-                secret: process.env.JWT_SECRET_KEY, 
+                secret: process.env.JWT_REFRESH_SECRET_KEY,
                 expiresIn: '7d'
             })
         ]);
@@ -112,5 +112,22 @@ export class AuthService {
                 throw new BadRequestException('Failed to update user');
             }
             return { message: 'User updated successfully' };
+    }
+    async refreshTokens(userId: string, refreshToken: string) {
+        
+        const user = await this.userService.findOne(userId);
+        if (!user) throw new UnauthorizedException('User not found');
+
+        const userWithToken = await this.userService.findByEmail(user.email!);
+        if (!userWithToken?.refreshToken) throw new UnauthorizedException('No refresh token found');
+
+        const isMatch = await bcrypt.compare(refreshToken, userWithToken.refreshToken);
+        if (!isMatch) throw new UnauthorizedException('Invalid refresh token');
+
+        const tokens = await this.getTokens(user.id!, user.email!, user.role!);
+
+        await this.userService.updateRefreshToken(user.id, tokens.refreshToken);
+
+        return tokens;
     }
 }
