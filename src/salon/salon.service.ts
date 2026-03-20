@@ -104,10 +104,34 @@ export class SalonService {
 
     }
 
-    async getAllSalons() {
+    async getAllSalons(page = 1, limit = 10) {
+        if (page < 1) {
+            throw new BadRequestException('Page must be greater than or equal to 1');
+        }
+        if (limit < 1 || limit > 100) {
+            throw new BadRequestException('Limit must be between 1 and 100');
+        }
+
         const collection = this.getSalonsCollection();
-        const snapshot = await collection.get();
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const offset = (page - 1) * limit;
+        const snapshot = await collection
+            .orderBy('createdAt', 'desc')
+            .offset(offset)
+            .limit(limit + 1)
+            .get();
+
+        const hasNext = snapshot.docs.length > limit;
+        const salons = (hasNext ? snapshot.docs.slice(0, limit) : snapshot.docs)
+            .map(doc => ({ id: doc.id, ...doc.data() }));
+
+        return {
+            data: salons,
+            pagination: {
+                page,
+                limit,
+                hasNext,
+            },
+        };
     }
 
     async getSalonsByOwner(ownerId: string) {

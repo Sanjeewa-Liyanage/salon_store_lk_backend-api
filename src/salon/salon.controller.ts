@@ -1,9 +1,9 @@
-import { Body, Controller, Post, UseGuards, Req, Param, Patch } from '@nestjs/common';
+import { Body, Controller, Post, UseGuards, Req, Param, Patch, Get, Query, DefaultValuePipe, ParseIntPipe } from '@nestjs/common';
 import { SalonService } from './salon.service';
 import { SalonCreateDto } from './dto/salon-create.dto';
 import { SalonUpdateDto } from './dto/salon-update.dto';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { SalonStatus } from './enum/salonstatus.enum';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -80,5 +80,18 @@ export class SalonController {
     async activateSalon(@Param('id') id: string) {
         return this.salonService.activateSalon(id);
     }
-
+    @UseGuards(AuthGuard('jwt'), RolesGuard)
+    @Roles(UserRole.ADMIN)
+    @Get('all')
+    @ApiOperation({ summary: 'Get all salons (Admin only)' })
+    @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+    @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
+    @ApiResponse({ status: 200, description: 'List of all salons.'})
+    @ApiResponse({ status: 403, description: 'Access denied. Admin role required.'})
+    async getAllSalons(
+        @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+        @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
+    ) {
+        return this.salonService.getAllSalons(page, limit);
+    }
 }
