@@ -134,6 +134,36 @@ export class SalonService {
         };
     }
 
+    async getPendingSalons(page = 1, limit = 10) {
+        if (page < 1) {
+            throw new BadRequestException('Page must be greater than or equal to 1');
+        }
+        if (limit < 1 || limit > 100) {
+            throw new BadRequestException('Limit must be between 1 and 100');
+        }
+        const collection = this.getSalonsCollection();
+        const offset = (page - 1) * limit;
+        const snapshot = await collection
+            .where('status', '==', SalonStatus.PENDING_VERIFICATION)
+            .orderBy('createdAt', 'desc')
+            .offset(offset)
+            .limit(limit + 1)
+            .get();
+        const hasNext = snapshot.docs.length > limit;
+        const salons = (hasNext ? snapshot.docs.slice(0, limit) : snapshot.docs)
+            .map(doc => ({ id: doc.id, ...doc.data() }));
+        return {
+            data: salons,
+            pagination: {
+                page,
+                limit,
+                hasNext,
+            },
+        };
+    }
+
+
+
     async getSalonsByOwner(ownerId: string) {
         const collection = this.getSalonsCollection();
         const snapshot = await collection.where('ownerId', '==', ownerId).get();
@@ -222,5 +252,7 @@ export class SalonService {
         })
         return { message: 'Salon activated successfully'};
     }
+
+    
     
 }
