@@ -3,5 +3,6 @@ export enum SalonStatus {
     INACTIVE = 'INACTIVE',
     SUSPENDED = 'SUSPENDED',
     PENDING_VERIFICATION = 'PENDING_VERIFICATION',
+    REJECTED = 'REJECTED',
     
 }

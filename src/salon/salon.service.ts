@@ -6,13 +6,15 @@ import { SalonCreateDto } from './dto/salon-create.dto';
 import { SalonStatus } from './enum/salonstatus.enum';
 import { stat } from 'fs';
 import { UserService } from '../user/user.service';
+import { ResendMailService } from '../common/mail/resendmail.service';
 
 @Injectable()
 export class SalonService {
     constructor(
         private geocodingService: GeocodingService,
         private firebaseService: FirebaseService,
-        private userService: UserService
+        private userService: UserService,
+        private resendMailService: ResendMailService
     ){}
 
     private getSalonsCollection(){
@@ -121,8 +123,25 @@ export class SalonService {
             .get();
 
         const hasNext = snapshot.docs.length > limit;
-        const salons = (hasNext ? snapshot.docs.slice(0, limit) : snapshot.docs)
+        const salonDocs = (hasNext ? snapshot.docs.slice(0, limit) : snapshot.docs)
             .map(doc => ({ id: doc.id, ...doc.data() }));
+
+        // Fetch owner names for each salon
+        const salons = await Promise.all(
+            salonDocs.map(async (salon) => {
+                let ownerName = 'Unknown';
+                if (salon.ownerId) {
+                    const owner = await this.userService.findOne(salon.ownerId);
+                    ownerName = owner 
+                        ? `${owner.firstName || ''} ${owner.lastName || ''}`.trim()
+                        : 'Unknown';
+                }
+                return {
+                    ...salon,
+                    ownerName,
+                };
+            })
+        );
 
         return {
             data: salons,
@@ -150,8 +169,26 @@ export class SalonService {
             .limit(limit + 1)
             .get();
         const hasNext = snapshot.docs.length > limit;
-        const salons = (hasNext ? snapshot.docs.slice(0, limit) : snapshot.docs)
+        const salonDocs = (hasNext ? snapshot.docs.slice(0, limit) : snapshot.docs)
             .map(doc => ({ id: doc.id, ...doc.data() }));
+
+        // Fetch owner names for each salon
+        const salons = await Promise.all(
+            salonDocs.map(async (salon) => {
+                let ownerName = 'Unknown';
+                if (salon.ownerId) {
+                    const owner = await this.userService.findOne(salon.ownerId);
+                    ownerName = owner 
+                        ? `${owner.firstName || ''} ${owner.lastName || ''}`.trim()
+                        : 'Unknown';
+                }
+                return {
+                    ...salon,
+                    ownerName,
+                };
+            })
+        );
+
         return {
             data: salons,
             pagination: {
@@ -200,16 +237,36 @@ export class SalonService {
 
 
 
-    async suspendSalon(id: string) {
+    async suspendSalon(id: string, reason: string) {
         const collection = this.getSalonsCollection();
         const salonDoc = await collection.doc(id).get();
         if (!salonDoc.exists) {
             throw new NotFoundException('Salon not found');
         }
+        
+        const salonData = salonDoc.data();
         await collection.doc(id).update({ 
             status: SalonStatus.SUSPENDED,
+            suspensionReason: reason,
             updatedAt: new Date()
         });
+        //? Send suspension email to owner
+
+        if(salonData?.ownerId){
+            const owner = await this.userService.findOne(salonData.ownerId);
+            if(owner && owner.email){
+                const ownerName = `${owner.firstName || ''} ${owner.lastName || ''}`.trim() || 'Salon Owner';
+                const salonName = salonData.salonName || 'Your Salon';
+                await this.resendMailService.sendSalonSuspensionEmail(
+                        owner.email,
+                        ownerName,
+                        salonName,
+                        reason,
+                        new Date().toLocaleDateString(),
+                    
+                );
+            }
+        }
         return { message: 'Salon suspended successfully', salonId: id };
     }
 
@@ -219,11 +276,60 @@ export class SalonService {
         if (!salonDoc.exists) {
             throw new NotFoundException('Salon not found');
         }
+        
+        const salonData = salonDoc.data();
         await collection.doc(id).update({ 
             status: SalonStatus.ACTIVE,
             updatedAt: new Date()
         });
+
+        // Send unsuspension email to owner
+        if(salonData?.ownerId){
+            const owner = await this.userService.findOne(salonData.ownerId);
+            if(owner && owner.email){
+                const ownerName = `${owner.firstName || ''} ${owner.lastName || ''}`.trim() || 'Salon Owner';
+                const salonName = salonData.salonName || 'Your Salon';
+                await this.resendMailService.sendSalonUnsuspensionEmail(
+                    owner.email,
+                    ownerName,
+                    salonName
+                );
+            }
+        }
+
         return { message: 'Salon unsuspended successfully', salonId: id };
+    }
+
+    async rejectSalon(id: string, reason: string){
+        const collection = this.getSalonsCollection();
+        const salonDoc = await collection.doc(id).get();
+        if (!salonDoc.exists) {
+            throw new NotFoundException('Salon not found');
+        }
+        
+        const salonData = salonDoc.data();
+        await collection.doc(id).update({
+            status: SalonStatus.REJECTED,
+            rejectionReason: reason,
+            updatedAt: new Date()
+        });
+
+        // Send rejection email to owner
+        if (salonData?.ownerId) {
+            const owner = await this.userService.findOne(salonData.ownerId);
+            if (owner && owner.email) {
+                const ownerName = `${owner.firstName || ''} ${owner.lastName || ''}`.trim() || 'Salon Owner';
+                const salonName = salonData.salonName || 'Your Salon';
+                await this.resendMailService.sendSalonRejectionEmail(
+                    owner.email,
+                    ownerName,
+                    salonName,
+                    reason
+                );
+            }
+        }
+
+        return { message: 'Salon rejected successfully', salonId: id };
     }
 
     async updateSalonStatus(id: string, status: SalonStatus) {
