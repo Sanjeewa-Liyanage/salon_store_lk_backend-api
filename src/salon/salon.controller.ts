@@ -29,6 +29,37 @@ export class SalonController {
     async updateSalon(@Param('id') id: string, @Body() dto: SalonUpdateDto) {
         return this.salonService.updateSalon(id, dto);
     }
+
+    @UseGuards(AuthGuard('jwt'), RolesGuard)
+    @Roles(UserRole.ADMIN)
+    @Get('all')
+    @ApiOperation({ summary: 'Get all salons (Admin only)' })
+    @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+    @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
+    @ApiResponse({ status: 200, description: 'List of all salons.'})
+    @ApiResponse({ status: 403, description: 'Access denied. Admin role required.'})
+    async getAllSalons(
+        @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+        @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
+    ) {
+        return this.salonService.getAllSalons(page, limit);
+    }
+
+    @UseGuards(AuthGuard('jwt'), RolesGuard)
+    @Roles(UserRole.ADMIN)
+    @Get('pending')
+    @ApiOperation({ summary: 'Get pending salons (Admin only)' })
+    @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+    @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
+    @ApiResponse({ status: 200, description: 'List of pending salons.'})
+    @ApiResponse({ status: 403, description: 'Access denied. Admin role required.'})
+    async getPendingSalons(
+        @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+        @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
+    ) {
+        return this.salonService.getPendingSalons(page, limit);
+    }
+
     @Get(':id')
     @ApiOperation({ summary: 'Get salon details by ID' })
     @ApiResponse({ status: 200, description: 'The salon details.'})
@@ -85,34 +116,6 @@ export class SalonController {
     @ApiResponse({ status: 403, description: 'Access denied. Admin role required.'})
     async activateSalon(@Param('id') id: string) {
         return this.salonService.activateSalon(id);
-    }
-    @UseGuards(AuthGuard('jwt'), RolesGuard)
-    @Roles(UserRole.ADMIN)
-    @Get('all')
-    @ApiOperation({ summary: 'Get all salons (Admin only)' })
-    @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
-    @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
-    @ApiResponse({ status: 200, description: 'List of all salons.'})
-    @ApiResponse({ status: 403, description: 'Access denied. Admin role required.'})
-    async getAllSalons(
-        @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
-        @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
-    ) {
-        return this.salonService.getAllSalons(page, limit);
-    }
-     @UseGuards(AuthGuard('jwt'), RolesGuard)
-    @Roles(UserRole.ADMIN)
-    @Get('pending')
-    @ApiOperation({ summary: 'Get pending salons (Admin only)' })
-    @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
-    @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
-    @ApiResponse({ status: 200, description: 'List of pending salons.'})
-    @ApiResponse({ status: 403, description: 'Access denied. Admin role required.'})
-    async getPendingSalons(
-        @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
-        @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
-    ) {
-        return this.salonService.getPendingSalons(page, limit);
     }
 
     @UseGuards(AuthGuard('jwt'), RolesGuard)
