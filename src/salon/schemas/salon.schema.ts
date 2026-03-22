@@ -23,6 +23,7 @@ export class SalonSchema{
     images?: string[];
     openingTime?: Date;
     closingTime?: Date;
+    rejectionReason?: string;
     
 
 

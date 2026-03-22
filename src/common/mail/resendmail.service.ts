@@ -116,6 +116,54 @@ export class ResendMailService {
         })
     }
 
+    private getSalonRejectionEmailTemplate(ownerName: string, salonName: string, rejectionReason: string) {
+        return `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                .container { max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px; background-color: #f9f9f9; }
+                .header { background-color: #e74c3c; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+                .content { padding: 30px; background-color: white; }
+                .details-box { background-color: #ecf0f1; padding: 15px; margin: 20px 0; border-radius: 8px; border-left: 4px solid #e74c3c; }
+                .details-box p { margin: 8px 0; }
+                .label { font-weight: bold; color: #2c3e50; }
+                .footer { margin-top: 20px; text-align: center; font-size: 0.85em; color: #7f8c8d; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>Salon Submission Status</h1>
+                </div>
+                <div class="content">
+                    <p>Hi ${ownerName},</p>
+                    <p>Thank you for your interest in joining Salon Store LK. Unfortunately, after reviewing your salon submission, we are unable to approve it at this time.</p>
+                    <div class="details-box">
+                        <p><span class="label">Salon Name:</span> ${salonName}</p>
+                        <p><span class="label">Reason for Rejection:</span></p>
+                        <p>${rejectionReason}</p>
+                    </div>
+                    <p>If you have any questions or would like more information about the reasons for this decision, please don't hesitate to contact our support team.</p>
+                    <p>We encourage you to address the feedback and reapply in the future. We'd love to have your salon on our platform!</p>
+                    <p>Best Regards,<br>The Salon Store LK Team</p>
+                </div>
+                <div class="footer">
+                    <p>&copy; ${new Date().getFullYear()} Salon Store LK. All rights reserved.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        `;
+    }
 
-
+    async sendSalonRejectionEmail(ownerEmail: string, ownerName: string, salonName: string, rejectionReason: string) {
+        await this.resend.emails.send({
+            from: 'SalonStore <noreply@salonstore.lk>',
+            to: ownerEmail,
+            subject: 'Salon Submission Status - Salon Store LK',
+            html: this.getSalonRejectionEmailTemplate(ownerName, salonName, rejectionReason),
+        });
+    }
 }

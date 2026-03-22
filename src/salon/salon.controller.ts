@@ -109,5 +109,14 @@ export class SalonController {
         return this.salonService.getPendingSalons(page, limit);
     }
 
+    @UseGuards(AuthGuard('jwt'), RolesGuard)
+    @Roles(UserRole.ADMIN)
+    @Patch('reject/:id')
+    @ApiOperation({ summary: 'Reject a salon (Admin only)' })
+    @ApiResponse({ status: 200, description: 'The salon has been successfully rejected.'})
+    @ApiResponse({ status: 403, description: 'Access denied. Admin role required.'})
+    async rejectSalon(@Param('id') id: string, @Body('reason') reason: string) {
+        return this.salonService.rejectSalon(id, reason);
+    }
     
 }
