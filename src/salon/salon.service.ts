@@ -76,10 +76,22 @@ export class SalonService {
     async getSalonById(id: string) {
         const collection = this.getSalonsCollection();
         const salonDoc = await collection.doc(id).get();
+        
         if (!salonDoc.exists) {
             throw new NotFoundException('Salon not found');
         }
-        return { id: salonDoc.id, ...salonDoc.data() };
+        
+        const salonData = salonDoc.data();
+        let ownerName = 'Unknown';
+        
+        if (salonData?.ownerId) {
+            const owner = await this.userService.findOne(salonData.ownerId);
+            ownerName = owner 
+                ? `${owner.firstName || ''} ${owner.lastName || ''}`.trim()
+                : 'Unknown';
+        }
+        
+        return { id: salonDoc.id, ...salonData, ownerName };
     }
 
     
