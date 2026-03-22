@@ -29,6 +29,12 @@ export class SalonController {
     async updateSalon(@Param('id') id: string, @Body() dto: SalonUpdateDto) {
         return this.salonService.updateSalon(id, dto);
     }
+    @Get(':id')
+    @ApiOperation({ summary: 'Get salon details by ID' })
+    @ApiResponse({ status: 200, description: 'The salon details.'})
+    async getSalonById(@Param('id') id: string) {
+        return this.salonService.getSalonById(id);
+    }
 
     @Post('delete/:id')
     @UseGuards(AuthGuard('jwt'))
