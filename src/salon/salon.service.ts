@@ -72,9 +72,14 @@ export class SalonService {
             result: salonData
          };
     }
+
     async getSalonById(id: string) {
         const collection = this.getSalonsCollection();
-        return await collection.doc(id).get();
+        const salonDoc = await collection.doc(id).get();
+        if (!salonDoc.exists) {
+            throw new NotFoundException('Salon not found');
+        }
+        return { id: salonDoc.id, ...salonDoc.data() };
     }
 
     
