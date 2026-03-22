@@ -24,6 +24,7 @@ export class SalonSchema{
     openingTime?: Date;
     closingTime?: Date;
     rejectionReason?: string;
+    suspensionReason?: string;
     
 
 

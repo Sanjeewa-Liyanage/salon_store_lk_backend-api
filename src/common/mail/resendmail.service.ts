@@ -166,4 +166,114 @@ export class ResendMailService {
             html: this.getSalonRejectionEmailTemplate(ownerName, salonName, rejectionReason),
         });
     }
+    private getSalonSuspensionEmailTemplate(ownerName: string, salonName: string, suspensionReason: string, suspensionDate: string) {
+        return `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                .container { max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px; background-color: #f9f9f9; }
+                .header { background-color: #e67e22; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+                .content { padding: 30px; background-color: white; }
+                .details-box { background-color: #fef9f0; padding: 15px; margin: 20px 0; border-radius: 8px; border-left: 4px solid #e67e22; }
+                .details-box p { margin: 8px 0; }
+                .label { font-weight: bold; color: #2c3e50; }
+                .warning-box { background-color: #fff3cd; padding: 12px 15px; margin: 20px 0; border-radius: 8px; border: 1px solid #ffc107; font-size: 0.95em; }
+                .footer { margin-top: 20px; text-align: center; font-size: 0.85em; color: #7f8c8d; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>⚠ Salon Account Suspended</h1>
+                </div>
+                <div class="content">
+                    <p>Hi ${ownerName},</p>
+                    <p>We are writing to inform you that your salon account on <strong>Salon Store LK</strong> has been temporarily suspended, effective <strong>${suspensionDate}</strong>.</p>
+                    <div class="details-box">
+                        <p><span class="label">Salon Name:</span> ${salonName}</p>
+                        <p><span class="label">Suspension Date:</span> ${suspensionDate}</p>
+                        <p><span class="label">Reason for Suspension:</span></p>
+                        <p>${suspensionReason}</p>
+                    </div>
+                    <div class="warning-box">
+                        <strong>What this means:</strong> During the suspension period, your salon listing will not be visible to customers and no new bookings can be made.
+                    </div>
+                    <p>If you believe this suspension was made in error, or if you have taken steps to resolve the issue, please contact our support team as soon as possible so we can review your case.</p>
+                    <p>We value your partnership and hope to restore your account once the matter has been addressed.</p>
+                    <p>Best Regards,<br>The Salon Store LK Team</p>
+                </div>
+                <div class="footer">
+                    <p>&copy; ${new Date().getFullYear()} Salon Store LK. All rights reserved.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        `;
+    }
+
+    async sendSalonSuspensionEmail(ownerEmail: string, ownerName: string, salonName: string, suspensionReason: string, suspensionDate: string) {
+        await this.resend.emails.send({
+            from: 'SalonStore <noreply@salonstore.lk>',
+            to: ownerEmail,
+            subject: 'Salon Account Suspended - Salon Store LK',
+            html: this.getSalonSuspensionEmailTemplate(ownerName, salonName, suspensionReason, suspensionDate),
+        });
+    }
+
+    private getSalonUnsuspensionEmailTemplate(ownerName: string, salonName: string) {
+        return `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                .container { max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px; background-color: #f9f9f9; }
+                .header { background-color: #27ae60; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+                .content { padding: 30px; background-color: white; }
+                .details-box { background-color: #f0fdf4; padding: 15px; margin: 20px 0; border-radius: 8px; border-left: 4px solid #27ae60; }
+                .details-box p { margin: 8px 0; }
+                .label { font-weight: bold; color: #2c3e50; }
+                .success-box { background-color: #d4edda; padding: 12px 15px; margin: 20px 0; border-radius: 8px; border: 1px solid #28a745; font-size: 0.95em; color: #155724; }
+                .footer { margin-top: 20px; text-align: center; font-size: 0.85em; color: #7f8c8d; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>✓ Salon Account Restored</h1>
+                </div>
+                <div class="content">
+                    <p>Hi ${ownerName},</p>
+                    <p>Great news! We are pleased to inform you that your salon account on <strong>Salon Store LK</strong> has been restored and is now active again.</p>
+                    <div class="details-box">
+                        <p><span class="label">Salon Name:</span> ${salonName}</p>
+                        <p><span class="label">Status:</span> <strong style="color: #27ae60;">Active</strong></p>
+                    </div>
+                    <div class="success-box">
+                        <strong>Your account is now live!</strong> Your salon listing is visible to customers and you can accept new bookings.
+                    </div>
+                    <p>Thank you for resolving the issue. We appreciate your cooperation and partnership with Salon Store LK.</p>
+                    <p>If you have any questions or need further assistance, please don't hesitate to contact our support team.</p>
+                    <p>Best Regards,<br>The Salon Store LK Team</p>
+                </div>
+                <div class="footer">
+                    <p>&copy; ${new Date().getFullYear()} Salon Store LK. All rights reserved.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        `;
+    }
+
+    async sendSalonUnsuspensionEmail(ownerEmail: string, ownerName: string, salonName: string) {
+        await this.resend.emails.send({
+            from: 'SalonStore <noreply@salonstore.lk>',
+            to: ownerEmail,
+            subject: 'Salon Account Restored - Salon Store LK',
+            html: this.getSalonUnsuspensionEmailTemplate(ownerName, salonName),
+        });
+    }
+
 }

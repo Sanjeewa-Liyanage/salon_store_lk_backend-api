@@ -237,16 +237,36 @@ export class SalonService {
 
 
 
-    async suspendSalon(id: string) {
+    async suspendSalon(id: string, reason: string) {
         const collection = this.getSalonsCollection();
         const salonDoc = await collection.doc(id).get();
         if (!salonDoc.exists) {
             throw new NotFoundException('Salon not found');
         }
+        
+        const salonData = salonDoc.data();
         await collection.doc(id).update({ 
             status: SalonStatus.SUSPENDED,
+            suspensionReason: reason,
             updatedAt: new Date()
         });
+        //? Send suspension email to owner
+
+        if(salonData?.ownerId){
+            const owner = await this.userService.findOne(salonData.ownerId);
+            if(owner && owner.email){
+                const ownerName = `${owner.firstName || ''} ${owner.lastName || ''}`.trim() || 'Salon Owner';
+                const salonName = salonData.salonName || 'Your Salon';
+                await this.resendMailService.sendSalonSuspensionEmail(
+                        owner.email,
+                        ownerName,
+                        salonName,
+                        reason,
+                        new Date().toLocaleDateString(),
+                    
+                );
+            }
+        }
         return { message: 'Salon suspended successfully', salonId: id };
     }
 
@@ -256,10 +276,27 @@ export class SalonService {
         if (!salonDoc.exists) {
             throw new NotFoundException('Salon not found');
         }
+        
+        const salonData = salonDoc.data();
         await collection.doc(id).update({ 
             status: SalonStatus.ACTIVE,
             updatedAt: new Date()
         });
+
+        // Send unsuspension email to owner
+        if(salonData?.ownerId){
+            const owner = await this.userService.findOne(salonData.ownerId);
+            if(owner && owner.email){
+                const ownerName = `${owner.firstName || ''} ${owner.lastName || ''}`.trim() || 'Salon Owner';
+                const salonName = salonData.salonName || 'Your Salon';
+                await this.resendMailService.sendSalonUnsuspensionEmail(
+                    owner.email,
+                    ownerName,
+                    salonName
+                );
+            }
+        }
+
         return { message: 'Salon unsuspended successfully', salonId: id };
     }
 
