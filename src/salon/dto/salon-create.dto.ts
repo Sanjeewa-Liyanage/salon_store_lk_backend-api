@@ -39,6 +39,9 @@ export class SalonCreateDto{
         price: number;
         duration: number; 
     }[];
+    @IsOptional()
+    @IsString({ each: true })
+    images?: string[];
 
 
 
