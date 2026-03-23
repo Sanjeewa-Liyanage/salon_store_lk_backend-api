@@ -60,6 +60,15 @@ export class SalonController {
         return this.salonService.getPendingSalons(page, limit);
     }
 
+    @UseGuards(AuthGuard('jwt'))
+    @Roles(UserRole.SALON_OWNER)
+    @Get('owner')
+    @ApiOperation({ summary: 'Get salons owned by the authenticated user' })
+    @ApiResponse({ status: 200, description: 'List of salons owned by the user.'})
+    async getSalonsByOwner(@Req() req: any) {
+        return this.salonService.getbyOwner(req.user.sub);
+    }
+
     @Get(':id')
     @ApiOperation({ summary: 'Get salon details by ID' })
     @ApiResponse({ status: 200, description: 'The salon details.'})

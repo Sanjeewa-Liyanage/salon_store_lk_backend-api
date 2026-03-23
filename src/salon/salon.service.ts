@@ -73,6 +73,12 @@ export class SalonService {
          };
     }
 
+    async getbyOwner(ownerId: string) {
+        const collection = this.getSalonsCollection();
+        const snapshot = await collection.where('ownerId', '==', ownerId).get();
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    }
+
     async getSalonById(id: string) {
         const collection = this.getSalonsCollection();
         const salonDoc = await collection.doc(id).get();
