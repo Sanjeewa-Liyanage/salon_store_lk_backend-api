@@ -87,6 +87,9 @@ export class AdsService {
         if(!plan?.duration || plan.duration <= 0){
             throw new BadRequestException(`Plan does not have a valid duration`);
         }
+        if(ad?.paymentStatus !== PaymentStatus.VERIFIED){
+            throw new BadRequestException(`Ad payment is not verified current: ${ad?.paymentStatus})`);
+        }
         const startDate = new Date();
         const endDate = new Date(startDate.getTime() + plan.duration * 24 * 60 * 60 * 1000);
         await docRef.update({

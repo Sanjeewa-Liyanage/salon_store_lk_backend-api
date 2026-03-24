@@ -13,6 +13,7 @@ import { AdsModule } from './ads/ads.module';
 import { PlanController } from './plan/plan.controller';
 import { PlanService } from './plan/plan.service';
 import { PlanModule } from './plan/plan.module';
+import { PaymentModule } from './payment/payment.module';
 
 @Module({
   imports: [
@@ -25,7 +26,8 @@ import { PlanModule } from './plan/plan.module';
     UserModule,
     SalonModule,
     AdsModule,
-    PlanModule
+    PlanModule,
+    PaymentModule
   ],
   controllers: [AppController, AdsController, PlanController],
   providers: [AppService, AdsService, PlanService],
