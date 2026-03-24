@@ -1,0 +1,6 @@
+export enum PaymentMethod{
+   PAYMENT_GATEWAY = 'PAYMENT_GATEWAY',
+    BANK_TRANSFER = 'BANK_TRANSFER',
+
+
+}

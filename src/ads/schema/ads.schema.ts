@@ -17,15 +17,14 @@ export class Ad{
     updatedAt?: Date;
     approvalDate?: Date;
     rejectionReason?: string;
+    transactionId?: string;
     
     //payment details
 
     paymentStatus?: PaymentStatus;
-    paymentMethod?: PaymentMethod;
+   
 
-    paymentProofUrl?: string;
-    transactionId?: string;
-    paymentVerifiedAt?: boolean;
+    
 
     
 
@@ -34,7 +33,6 @@ export class Ad{
         this.paymentStatus = PaymentStatus.NOTVERIFIED;
         this.rejectionReason = '';
         this.approvalDate = undefined;
-        this.paymentProofUrl = undefined;
         Object.assign(this, partial);
     }
 
