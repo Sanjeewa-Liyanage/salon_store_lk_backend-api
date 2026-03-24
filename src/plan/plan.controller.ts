@@ -22,6 +22,11 @@ export class PlanController {
     return this.planService.createPlan(dto);
    
     }
+    
+    @Get()
+    async getPlans(){
+        return this.planService.getPlans();
+    }
 
     @Get('all')
     async getAllPlans(

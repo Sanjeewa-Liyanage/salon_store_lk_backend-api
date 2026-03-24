@@ -63,6 +63,15 @@ export class PlanService {
             planCode: planCode
         };
     }
+    async getPlans(){
+        const collection = this.getPlanCollection();
+        const snapshot = await collection.get();
+        
+        return snapshot.docs.map(doc => ({
+            id: doc.id,
+            planName: doc.data().planName
+        }));
+    }
 
     async getAllPlans(page: number = 1, limit: number = 10) {
         const collection = this.getPlanCollection();
