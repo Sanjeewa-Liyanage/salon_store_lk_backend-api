@@ -20,6 +20,11 @@ export class AdsController {
     async createAd(@Body()dto: AdsCreateDto, @Req()req: any){
         return this.adsService.createAd(dto, req.user.sub); 
     }
+    
+    @Get(':salonId')
+    async getAdsBySalonId(@Req()req: any){
+        return this.adsService.getAdsBySalonId(req.params.salonId);
+    }
 
     @Patch('approve/:id')
     @UseGuards(AuthGuard('jwt'))

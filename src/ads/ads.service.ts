@@ -201,5 +201,20 @@ export class AdsService {
             }  
         }
     }
+    async getAdsBySalonId(salonId: string): Promise<Ad[]>{
+        const collection = this.getCollection();
+        const adsSnapshot = await collection.
+            where('salonId', '==', salonId).
+            orderBy('createdAt', 'desc').
+            get();
+        if(adsSnapshot.empty){
+            return [];
+        }
+        return adsSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
+        
+    }
 
 }
