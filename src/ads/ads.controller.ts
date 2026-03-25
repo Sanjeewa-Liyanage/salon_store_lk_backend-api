@@ -1,4 +1,4 @@
-import { Body, Controller, Patch, Post, Req, UseGuards, Get, Param, BadRequestException } from '@nestjs/common';
+import { Body, Controller, Patch, Post, Req, UseGuards, Get, Param, BadRequestException, Query } from '@nestjs/common';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { AdsService } from './ads.service';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -44,11 +44,22 @@ export class AdsController {
         return this.adsService.rejectAd(req.params.id, reason); 
     }
     
-    @Get('all')
+    @Get('all-priority')
     async getAllAds(@Req()req: any){
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
         return this.adsService.getAdsByPriority(page, limit);
+    }
+
+    
+
+    @Get('admin/all')
+    @UseGuards(AuthGuard('jwt'))
+    @Roles(UserRole.ADMIN)
+    async getAllAdsAdmin(@Req() req: any, @Query('page') page?: string, @Query('limit') limit?: string) {
+        const pageNum = page ? parseInt(page) : undefined;
+        const limitNum = limit ? parseInt(limit) : undefined;
+        return this.adsService.getAllAds(pageNum, limitNum);
     }
 
     @Get(':id/payment')
