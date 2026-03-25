@@ -294,6 +294,79 @@ export class AdsService {
             throw new BadRequestException('Failed to retrieve all ads');
         }
     }
+
+    // Get ads filtered by status
+    async getAdsByStatus(status: string, page?: number, limit?: number): Promise<any>{
+        const collection = this.getCollection();
+        
+        try {
+            // Validate status is a valid enum value
+            if (!Object.values(AdStatus).includes(status as AdStatus)) {
+                throw new BadRequestException(`Invalid status: ${status}. Valid statuses are: ${Object.values(AdStatus).join(', ')}`);
+            }
+
+            let query: FirebaseFirestore.Query<Ad> = collection;
+            
+            // Filter by status and order by creation date (newest first)
+            query = query.where('status', '==', status).orderBy('createdAt', 'desc');
+            
+            const adsSnapshot = await query.get();
+            
+            if (adsSnapshot.empty) {
+                return {
+                    data: [],
+                    status: status,
+                    pagination: page !== undefined && limit !== undefined ? {
+                        currentPage: page,
+                        limit: limit,
+                        totalItems: 0,
+                        totalPages: 0,
+                        hasNextPage: false,
+                        hasPreviousPage: false
+                    } : undefined
+                };
+            }
+            
+            const ads = adsSnapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+            
+            // If pagination parameters are provided, apply pagination
+            if (page !== undefined && limit !== undefined) {
+                const totalItems = ads.length;
+                const totalPages = Math.ceil(totalItems / limit);
+                const offset = (page - 1) * limit;
+                const paginatedAds = ads.slice(offset, offset + limit);
+                
+                return {
+                    data: paginatedAds,
+                    status: status,
+                    pagination: {
+                        currentPage: page,
+                        limit,
+                        totalItems,
+                        totalPages,
+                        hasNextPage: page < totalPages,
+                        hasPreviousPage: page > 1
+                    }
+                };
+            }
+            
+            // Return all ads without pagination
+            return {
+                data: ads,
+                status: status,
+                total: ads.length
+            };
+        } catch (error) {
+            console.error('Error getting ads by status:', error);
+            if (error instanceof BadRequestException) {
+                throw error;
+            }
+            throw new BadRequestException('Failed to retrieve ads by status');
+        }
+    }
     
 }
 

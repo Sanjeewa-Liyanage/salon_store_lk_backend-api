@@ -62,6 +62,15 @@ export class AdsController {
         return this.adsService.getAllAds(pageNum, limitNum);
     }
 
+    @Get('status/:status')
+    @UseGuards(AuthGuard('jwt'))
+    @Roles(UserRole.ADMIN)
+    async getAdsByStatus(@Param('status') status: string, @Query('page') page?: string, @Query('limit') limit?: string) {
+        const pageNum = page ? parseInt(page) : undefined;
+        const limitNum = limit ? parseInt(limit) : undefined;
+        return this.adsService.getAdsByStatus(status, pageNum, limitNum);
+    }
+
     @Get(':id/payment')
     @UseGuards(AuthGuard('jwt'))
     async getAdsAndPayment(@Param('id') adId: string, @Req() req: any) {
