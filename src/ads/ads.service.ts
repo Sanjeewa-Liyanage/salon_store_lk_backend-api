@@ -9,12 +9,14 @@ import { Ad } from './schema/ads.schema';
 import { AdStatus } from './enum/adstatus.enum';
 import { PaymentStatus } from './enum/paymentstat.enum';
 import { start } from 'repl';
+import { PaymentService } from '../payment/payment.service';
 
 @Injectable()
 export class AdsService {
     constructor(private firebaseService: FirebaseService,
                 private planService: PlanService,
                 private salonService: SalonService,
+                private paymentService: PaymentService 
                 ){}
 
     private getCollection(){
@@ -216,5 +218,19 @@ export class AdsService {
         }));
         
     }
+    
+    async getAdsAndPayment(adId: string): Promise<any>{
+        const ad = await this.getAdById(adId);
+        const payments = await this.paymentService.getPayamentsByreferenceId(adId);
+        
+        return {
+            ad: {
+                id: adId,
+                ...ad
+            },
+            payments
+        };
+    }
+
 
 }

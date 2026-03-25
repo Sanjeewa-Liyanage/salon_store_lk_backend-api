@@ -169,5 +169,13 @@ export class PaymentService {
             updatedAt: firestore.FieldValue.serverTimestamp(),
         });
     }
+    async getPayamentsByreferenceId(referenceId: string): Promise<Payment[]> {
+        const snapshot = await this.getCollection()
+            .where('referenceId', '==', referenceId)
+            .orderBy('createdAt', 'desc')
+            .get();
+        return snapshot.docs.map(doc => doc.data() as Payment);
+    }
+
 }
  //? this focused on the ads mainly if you want to use this payment service for another purpose you might be make separate functions for it use referenceId as your purpose id and update the relevant collection based on that
