@@ -136,6 +136,7 @@ export class AdsService {
 
     }
 
+
     //* get the ads with approved and verified payment and sort by plan priority and start date
     //todo need to sanitize the add data before sending to client
      
@@ -232,5 +233,67 @@ export class AdsService {
         };
     }
 
-
+    // Admin-only: Get all ads from the database
+    async getAllAds(page?: number, limit?: number): Promise<any>{
+        const collection = this.getCollection();
+        
+        try {
+            let query: FirebaseFirestore.Query<Ad> = collection;
+            
+            // Get all ads ordered by creation date (newest first)
+            query = query.orderBy('createdAt', 'desc');
+            
+            const adsSnapshot = await query.get();
+            
+            if (adsSnapshot.empty) {
+                return {
+                    data: [],
+                    pagination: page !== undefined && limit !== undefined ? {
+                        currentPage: page,
+                        limit: limit,
+                        totalItems: 0,
+                        totalPages: 0,
+                        hasNextPage: false,
+                        hasPreviousPage: false
+                    } : undefined
+                };
+            }
+            
+            const ads = adsSnapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+            
+            // If pagination parameters are provided, apply pagination
+            if (page !== undefined && limit !== undefined) {
+                const totalItems = ads.length;
+                const totalPages = Math.ceil(totalItems / limit);
+                const offset = (page - 1) * limit;
+                const paginatedAds = ads.slice(offset, offset + limit);
+                
+                return {
+                    data: paginatedAds,
+                    pagination: {
+                        currentPage: page,
+                        limit,
+                        totalItems,
+                        totalPages,
+                        hasNextPage: page < totalPages,
+                        hasPreviousPage: page > 1
+                    }
+                };
+            }
+            
+            // Return all ads without pagination
+            return {
+                data: ads,
+                total: ads.length
+            };
+        } catch (error) {
+            console.error('Error getting all ads:', error);
+            throw new BadRequestException('Failed to retrieve all ads');
+        }
+    }
+    
 }
+
