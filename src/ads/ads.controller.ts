@@ -1,10 +1,11 @@
-import { Body, Controller, Patch, Post, Req, UseGuards,Get } from '@nestjs/common';
+import { Body, Controller, Patch, Post, Req, UseGuards, Get, Param, BadRequestException } from '@nestjs/common';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { AdsService } from './ads.service';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { AdsCreateDto } from './dto/adscreate.dto';
 import { UserRole } from '../user/enum/userrole.enum';
 import { AuthGuard } from '@nestjs/passport';
+import { SalonService } from '../salon/salon.service';
 
 
 
@@ -12,7 +13,10 @@ import { AuthGuard } from '@nestjs/passport';
 @Controller('ads')
 
 export class AdsController {
-    constructor(private adsService: AdsService) {}
+    constructor(
+        private adsService: AdsService,
+        private salonService: SalonService
+    ) {}
 
     @Post('create')
     @UseGuards(AuthGuard('jwt'))
@@ -45,6 +49,32 @@ export class AdsController {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
         return this.adsService.getAdsByPriority(page, limit);
+    }
+
+    @Get(':id/payment')
+    @UseGuards(AuthGuard('jwt'))
+    async getAdsAndPayment(@Param('id') adId: string, @Req() req: any) {
+        const userRole = req.user.role;
+        const userId = req.user.sub;
+
+        // Get the ad details to check ownership
+        const ad = await this.adsService.getAdById(adId);
+
+        if (!ad.salonId) {
+            throw new BadRequestException('Ad does not have a valid salon association');
+        }
+
+        // Check authorization: allow admin or salon owner (with ownership verification)
+        if (userRole === UserRole.ADMIN) {
+            // Admin can see any ad's payment details
+            return this.adsService.getAdsAndPayment(adId);
+        } else if (userRole === UserRole.SALON_OWNER) {
+            // Salon owner can only see their own salon's ad payments
+            await this.salonService.checkOwnership(ad.salonId, userId);
+            return this.adsService.getAdsAndPayment(adId);
+        } else {
+            throw new BadRequestException('Unauthorized: Only admin or salon owner can access this resource');
+        }
     }
 
 }
