@@ -25,6 +25,39 @@ export class AdsService {
             withConverter(adConverter);
     }
 
+    private async getSalonNameMap(salonIds: string[]): Promise<Map<string, string>> {
+        const uniqueSalonIds = [...new Set(salonIds.filter(Boolean))];
+        const salonNameMap = new Map<string, string>();
+
+        await Promise.all(
+            uniqueSalonIds.map(async (salonId) => {
+                try {
+                    const salonDoc = await this.firebaseService
+                        .getFirestore()
+                        .collection('salons')
+                        .doc(salonId)
+                        .get();
+
+                    const salonData = salonDoc.data() as { salonName?: string } | undefined;
+                    salonNameMap.set(salonId, salonData?.salonName ?? 'Unknown Salon');
+                } catch {
+                    salonNameMap.set(salonId, 'Unknown Salon');
+                }
+            }),
+        );
+
+        return salonNameMap;
+    }
+
+    private mapAdWithSalonName<T extends { salonId?: string }>(ad: T, salonNameMap: Map<string, string>) {
+        const { salonId, ...adWithoutSalonId } = ad as T & Record<string, any>;
+
+        return {
+            ...adWithoutSalonId,
+            salonName: salonId ? salonNameMap.get(salonId) ?? 'Unknown Salon' : 'Unknown Salon',
+        };
+    }
+
     async createAd(dto : AdsCreateDto, userId: string){
         const collection = this.getCollection();
 
@@ -192,8 +225,15 @@ export class AdsService {
         const totalPages = Math.ceil(totalItems / limit);
         const offset = (page - 1) * limit;
         const paginatedAds = sortedAds.slice(offset, offset + limit);
+        const salonNameMap = await this.getSalonNameMap(
+            paginatedAds
+                .map(ad => ad.salonId)
+                .filter((salonId): salonId is string => Boolean(salonId)),
+        );
+        const adsWithSalonNames = paginatedAds.map(ad => this.mapAdWithSalonName(ad, salonNameMap));
+
         return {
-            data: paginatedAds,
+            data: adsWithSalonNames,
             pagination: {
                 currentPage: page,
                 limit,
@@ -204,7 +244,7 @@ export class AdsService {
             }  
         }
     }
-    async getAdsBySalonId(salonId: string): Promise<Ad[]>{
+    async getAdsBySalonId(salonId: string): Promise<any[]>{
         const collection = this.getCollection();
         const adsSnapshot = await collection.
             where('salonId', '==', salonId).
@@ -213,22 +253,29 @@ export class AdsService {
         if(adsSnapshot.empty){
             return [];
         }
-        return adsSnapshot.docs.map(doc => ({
+        const ads = adsSnapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
         }));
+
+        const salonNameMap = await this.getSalonNameMap([salonId]);
+        return ads.map(ad => this.mapAdWithSalonName(ad, salonNameMap));
         
     }
     
     async getAdsAndPayment(adId: string): Promise<any>{
         const ad = await this.getAdById(adId);
         const payments = await this.paymentService.getPayamentsByreferenceId(adId);
+        const salonNameMap = await this.getSalonNameMap(
+            ad.salonId ? [ad.salonId] : [],
+        );
+        const adWithSalonName = this.mapAdWithSalonName({
+            id: adId,
+            ...ad,
+        }, salonNameMap);
         
         return {
-            ad: {
-                id: adId,
-                ...ad
-            },
+            ad: adWithSalonName,
             payments
         };
     }
@@ -263,13 +310,20 @@ export class AdsService {
                 id: doc.id,
                 ...doc.data()
             }));
+
+            const salonNameMap = await this.getSalonNameMap(
+                ads
+                    .map(ad => ad.salonId)
+                    .filter((salonId): salonId is string => Boolean(salonId)),
+            );
+            const adsWithSalonNames = ads.map(ad => this.mapAdWithSalonName(ad, salonNameMap));
             
             // If pagination parameters are provided, apply pagination
             if (page !== undefined && limit !== undefined) {
-                const totalItems = ads.length;
+                const totalItems = adsWithSalonNames.length;
                 const totalPages = Math.ceil(totalItems / limit);
                 const offset = (page - 1) * limit;
-                const paginatedAds = ads.slice(offset, offset + limit);
+                const paginatedAds = adsWithSalonNames.slice(offset, offset + limit);
                 
                 return {
                     data: paginatedAds,
@@ -286,8 +340,8 @@ export class AdsService {
             
             // Return all ads without pagination
             return {
-                data: ads,
-                total: ads.length
+                data: adsWithSalonNames,
+                total: adsWithSalonNames.length
             };
         } catch (error) {
             console.error('Error getting all ads:', error);
@@ -331,13 +385,20 @@ export class AdsService {
                 id: doc.id,
                 ...doc.data()
             }));
+
+            const salonNameMap = await this.getSalonNameMap(
+                ads
+                    .map(ad => ad.salonId)
+                    .filter((salonId): salonId is string => Boolean(salonId)),
+            );
+            const adsWithSalonNames = ads.map(ad => this.mapAdWithSalonName(ad, salonNameMap));
             
             // If pagination parameters are provided, apply pagination
             if (page !== undefined && limit !== undefined) {
-                const totalItems = ads.length;
+                const totalItems = adsWithSalonNames.length;
                 const totalPages = Math.ceil(totalItems / limit);
                 const offset = (page - 1) * limit;
-                const paginatedAds = ads.slice(offset, offset + limit);
+                const paginatedAds = adsWithSalonNames.slice(offset, offset + limit);
                 
                 return {
                     data: paginatedAds,
@@ -355,9 +416,9 @@ export class AdsService {
             
             // Return all ads without pagination
             return {
-                data: ads,
+                data: adsWithSalonNames,
                 status: status,
-                total: ads.length
+                total: adsWithSalonNames.length
             };
         } catch (error) {
             console.error('Error getting ads by status:', error);
