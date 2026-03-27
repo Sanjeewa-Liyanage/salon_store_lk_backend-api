@@ -120,6 +120,11 @@ export class PaymentService {
             throw new BadRequestException(`Payment with ID ${paymentId} not found`);
         }
 
+        const normalizedReason = (reason ?? '').trim();
+        if (!normalizedReason) {
+            throw new BadRequestException('Rejection reason is required');
+        }
+
         const payment = doc.data();
         if (payment?.status !== PaymentStatus.PENDING_VERIFICATION) {
             throw new BadRequestException(
@@ -129,7 +134,7 @@ export class PaymentService {
 
         await docRef.update({
             status: PaymentStatus.REJECTED,
-            rejectionReason: reason,
+            rejectionReason: normalizedReason,
             updatedAt: firestore.FieldValue.serverTimestamp(),
         });
 
