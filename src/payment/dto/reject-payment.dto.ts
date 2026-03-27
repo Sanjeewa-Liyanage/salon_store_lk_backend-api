@@ -1,7 +1,8 @@
 // payment/dto/reject-payment.dto.ts
-import { IsString } from 'class-validator';
+import { IsNotEmpty, IsString } from 'class-validator';
 
 export class RejectPaymentDto {
     @IsString()
+    @IsNotEmpty()
     reason: string;
 }
