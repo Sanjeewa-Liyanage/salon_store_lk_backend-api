@@ -383,5 +383,60 @@ export class SalonService {
     }
 
     
+    async getactiveallsalons(page = 1){
+        if (page < 1) {
+            throw new BadRequestException('Page must be greater than or equal to 1');
+        }
+
+        const limit = 10;
+        const offset = (page - 1) * limit;
+        const collection = this.getSalonsCollection();
+
+        // Fetch active salons and all ads, then rank salons by ad volume.
+        const [activeSalonsSnapshot, adsSnapshot] = await Promise.all([
+            collection.where('status', '==', SalonStatus.ACTIVE).get(),
+            this.firebaseService.getFirestore().collection('ads').get(),
+        ]);
+
+        const adCountBySalon = new Map<string, number>();
+        adsSnapshot.docs.forEach((doc) => {
+            const adData = doc.data() as { salonId?: string };
+            if (!adData.salonId) {
+                return;
+            }
+            adCountBySalon.set(adData.salonId, (adCountBySalon.get(adData.salonId) ?? 0) + 1);
+        });
+
+        const rankedSalons = activeSalonsSnapshot.docs
+            .map((doc) => {
+                const salonData = doc.data();
+                const adCount = adCountBySalon.get(doc.id) ?? 0;
+                return {
+                    id: doc.id,
+                    ...salonData,
+                    adCount,
+                };
+            })
+            .sort((a, b) => b.adCount - a.adCount);
+
+        const totalItems = rankedSalons.length;
+        const totalPages = Math.ceil(totalItems / limit);
+        const paginatedSalons = rankedSalons.slice(offset, offset + limit);
+
+        return {
+            data: paginatedSalons,
+            pagination: {
+                page,
+                limit,
+                totalItems,
+                totalPages,
+                hasNext: page < totalPages,
+                hasPrevious: page > 1,
+            },
+        };
+        
+    }
+
+    
     
 }

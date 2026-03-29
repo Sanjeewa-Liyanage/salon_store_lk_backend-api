@@ -136,5 +136,15 @@ export class SalonController {
     async rejectSalon(@Param('id') id: string, @Body('reason') reason: string) {
         return this.salonService.rejectSalon(id, reason);
     }
+
+    @Get('active/all')
+    @ApiOperation({ summary: 'Get active salons ranked by ad engagement' })
+    @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+    @ApiResponse({ status: 200, description: 'Paginated list of active salons (10 per page), sorted by ad count.' })
+    async getAllActiveSalons(
+        @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    ) {
+        return this.salonService.getactiveallsalons(page);
+    }
     
 }
