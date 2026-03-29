@@ -56,11 +56,11 @@ export class PlanService {
         };
         
         const docRef = await collection.add(newPlan);
-        
+        const createdDoc = await docRef.get();
+
         return {
-            id: docRef.id,
-            ...newPlan,
-            planCode: planCode
+            id: createdDoc.id,
+            ...createdDoc.data()
         };
     }
     async getPlans(){
