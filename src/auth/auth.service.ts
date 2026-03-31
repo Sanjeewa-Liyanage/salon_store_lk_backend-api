@@ -10,7 +10,7 @@ export class AuthService {
     constructor(
         private userService: UserService,
         private jwtService: JwtService
-    ) {}
+    ) { }
 
     async register(dto: UserRegistrationDto) {
         // 1. Create User
@@ -72,22 +72,22 @@ export class AuthService {
     }
     async forgotPasswordOtp(email: string) {
 
-       const res = await this.userService.sendOtpToEmail(email);
-       if (!res) {
-        throw new BadRequestException('Failed to send OTP');
-       }
+        const res = await this.userService.sendOtpToEmail(email);
+        if (!res) {
+            throw new BadRequestException('Failed to send OTP');
+        }
         const token = await this.jwtService.signAsync({ email }, {
-        secret: process.env.JWT_SECRET_KEY, 
-        expiresIn: '15m'
-       });
-         return {
-                token,
-                message: 'OTP sent to registered email if user exists'
-         }
+            secret: process.env.JWT_SECRET_KEY,
+            expiresIn: '15m'
+        });
+        return {
+            token,
+            message: 'OTP sent to registered email if user exists'
+        }
     }
     async verifyOtp(email: string, otp: string) {
         const isValid = await this.userService.verifyOtp(email, otp);
-        
+
         if (!isValid) {
             throw new UnauthorizedException('Invalid or expired OTP');
         }
@@ -107,14 +107,14 @@ export class AuthService {
     }
 
     async updateUser(id: string, updateDto: UserUpdateDto) {
-            const updatedUser = await this.userService.updateUser(id, updateDto);
-            if (!updatedUser) {
-                throw new BadRequestException('Failed to update user');
-            }
-            return { message: 'User updated successfully' };
+        const updatedUser = await this.userService.updateUser(id, updateDto);
+        if (!updatedUser) {
+            throw new BadRequestException('Failed to update user');
+        }
+        return { message: 'User updated successfully' };
     }
     async refreshTokens(userId: string, refreshToken: string) {
-        
+
         const user = await this.userService.findOne(userId);
         if (!user) throw new UnauthorizedException('User not found');
 
@@ -130,4 +130,11 @@ export class AuthService {
 
         return tokens;
     }
+    async logOut(userId: string) {
+        const user = await this.userService.findOne(userId);
+        if (!user) throw new UnauthorizedException('User not found');
+        await this.userService.updateRefreshToken(user.id, "");
+        return { message: 'User logged out successfully' };
+    }
+
 }

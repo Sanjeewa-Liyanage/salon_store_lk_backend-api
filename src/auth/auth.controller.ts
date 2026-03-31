@@ -10,7 +10,7 @@ import { UserUpdateDto } from '../user/dto/user-update.dto';
 
 @Controller('auth')
 export class AuthController {
-    constructor(private authService: AuthService) {}
+    constructor(private authService: AuthService) { }
 
     @Post('register')
     register(@Body() dto: UserRegistrationDto) {
@@ -50,5 +50,12 @@ export class AuthController {
         return this.authService.refreshTokens(userId, refreshToken);
     }
 
-    
+    @Post('logout')
+    @UseGuards(AuthGuard('jwt'))
+    logout(@Req() req: Request) {
+        const userId = req['user']['sub'];
+        return this.authService.logOut(userId);
+    }
+
+
 }
