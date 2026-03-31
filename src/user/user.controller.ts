@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Get, Req, Query, Res, Patch } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Get, Req, Query, Res, Patch, Param } from '@nestjs/common';
 import { UserService } from './user.service';
 import { User } from './schema/user.schema';
 import { UserRegistrationDto } from './dto/userregister.dto';
@@ -60,7 +60,7 @@ export class UserController {
   @ApiOperation({ summary: 'Suspend a user (Admin only)' })
   @ApiResponse({ status: 200, description: 'The user has been successfully suspended.'})
   @ApiResponse({ status: 403, description: 'Access denied. Admin role required.'})
-  async suspendUser(@Req() req: any, @Query('id') id: string) {
+  async suspendUser(@Req() req: any, @Param('id') id: string) {
     return this.userService.suspendUser(id);
   }
 
@@ -70,7 +70,7 @@ export class UserController {
   @ApiOperation({ summary: 'Unsuspend a user (Admin only)' })
   @ApiResponse({ status: 200, description: 'The user has been successfully unsuspended.'})
   @ApiResponse({ status: 403, description: 'Access denied. Admin role required.'})
-  async unsuspendUser(@Query('id') id: string) {
+  async unsuspendUser(@Req() req: any, @Param('id') id: string) {
     return this.userService.unsuspendUser(id);
   }
 
