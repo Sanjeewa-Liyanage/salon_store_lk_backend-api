@@ -390,6 +390,42 @@ export class UserService {
     }
 
 
+    async getById(id: string) {
+        const doc = await this.getUsersCollection().doc(id).get();
+        if (!doc.exists) {
+            throw new NotFoundException(`User with id "${id}" not found`);
+        }
+        const data = doc.data();
+        if (!data) {
+            throw new InternalServerErrorException('User data is unavailable');
+        }
+
+        const {
+            password,
+            refreshToken,
+            emailVerificationToken,
+            emailVerificationTokenExpires,
+            otp,
+            otpExpires,
+            ...safeUser
+        } = data as any;
+
+        let activity: any = {};
+        if (safeUser.role === UserRole.SALON_OWNER) {
+            const salonsSnapshot = await this.firebaseService.getFirestore()
+                .collection('salons')
+                .where('ownerId', '==', id)
+                .get();
+
+            activity.salons = salonsSnapshot.docs.map(salonDoc => ({
+                id: salonDoc.id,
+                ...salonDoc.data()
+            }));
+        }
+
+        return { id: doc.id, ...safeUser, ...activity };
+    }
+
 }
 
 

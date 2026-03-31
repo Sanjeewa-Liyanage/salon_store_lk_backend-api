@@ -10,7 +10,9 @@ import { UserStatus } from './enum/userstatus.enum';
 
 @Controller('user')
 export class UserController {
-  constructor(private readonly userService: UserService) {}
+  constructor(private readonly userService: UserService) { }
+
+
 
   @Get('all')
   @UseGuards(AuthGuard('jwt'))
@@ -52,14 +54,24 @@ export class UserController {
     return res.redirect('https://salonstore.lk/verify-success');
   }
 
+  @Get(':id')
+  @UseGuards(AuthGuard('jwt'))
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Get user by ID (Admin only)' })
+  @ApiResponse({ status: 200, description: 'The user has been successfully retrieved.' })
+  @ApiResponse({ status: 403, description: 'Access denied. Admin role required.' })
+  async getUserById(@Req() req: any, @Param('id') id: string) {
+    return this.userService.getById(id);
+  }
+
 
 
   @Patch('suspend/:id')
   @UseGuards(AuthGuard('jwt'))
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Suspend a user (Admin only)' })
-  @ApiResponse({ status: 200, description: 'The user has been successfully suspended.'})
-  @ApiResponse({ status: 403, description: 'Access denied. Admin role required.'})
+  @ApiResponse({ status: 200, description: 'The user has been successfully suspended.' })
+  @ApiResponse({ status: 403, description: 'Access denied. Admin role required.' })
   async suspendUser(@Req() req: any, @Param('id') id: string) {
     return this.userService.suspendUser(id);
   }
@@ -68,12 +80,12 @@ export class UserController {
   @UseGuards(AuthGuard('jwt'))
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Unsuspend a user (Admin only)' })
-  @ApiResponse({ status: 200, description: 'The user has been successfully unsuspended.'})
-  @ApiResponse({ status: 403, description: 'Access denied. Admin role required.'})
+  @ApiResponse({ status: 200, description: 'The user has been successfully unsuspended.' })
+  @ApiResponse({ status: 403, description: 'Access denied. Admin role required.' })
   async unsuspendUser(@Req() req: any, @Param('id') id: string) {
     return this.userService.unsuspendUser(id);
   }
 
 
- 
+
 }
