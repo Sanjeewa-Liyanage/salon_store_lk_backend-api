@@ -169,13 +169,31 @@ export class PlaygroundController {
                     data: (method === 'GET' || method === 'HEAD') ? undefined : data,
                     params: (method === 'GET') ? data : undefined
                 });
-                
-                $('#response').text(JSON.stringify(res.data, null, 2));
+
+                const contentType = (res.headers && res.headers['content-type']) || '';
+                if (typeof res.data === 'string') {
+                    if (contentType.includes('application/json')) {
+                        try {
+                            $('#response').text(JSON.stringify(JSON.parse(res.data), null, 2));
+                        } catch {
+                            $('#response').text(res.data);
+                        }
+                    } else {
+                        $('#response').text(res.data);
+                    }
+                } else {
+                    $('#response').text(JSON.stringify(res.data, null, 2));
+                }
+
                 $('#statusBadge').attr('class', 'badge badge-success').text(res.status + ' ' + res.statusText);
             } catch (err) {
                 console.error(err);
                 const resData = err.response ? err.response.data : err.message;
-                $('#response').text(JSON.stringify(resData, null, 2));
+                if (typeof resData === 'string') {
+                    $('#response').text(resData);
+                } else {
+                    $('#response').text(JSON.stringify(resData, null, 2));
+                }
                  $('#statusBadge').attr('class', 'badge badge-danger').text(err.response ? err.response.status : 'Error');
             }
             generateAxiosCode();

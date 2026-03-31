@@ -1,6 +1,6 @@
 import { UserStatus } from "../enum/userstatus.enum";
 import { UserRole } from "../enum/userrole.enum";
-import e from "express";
+
 
 export class UserSchema {
     id?: string;
@@ -19,8 +19,8 @@ export class UserSchema {
     emailVerificationTokenExpires?: Date;
     otp?: string;
     otpExpires?: Date;
-    
-// optional 
+
+    // optional 
     businessLicense?: string;
     verificationDate?: Date;
     isVerified?: boolean;
@@ -39,11 +39,11 @@ export class User extends UserSchema {
     }
 }
 export class SalonOwner extends User {
-   businessLicense: string ;
-   salonIds?: string[] | undefined;
-   isVerified: boolean;
+    businessLicense: string;
+    salonIds?: string[] | undefined;
+    isVerified: boolean;
 
-   constructor(partial: Partial<SalonOwner>) {
+    constructor(partial: Partial<SalonOwner>) {
         super(partial);
         this.role = UserRole.SALON_OWNER;
         this.businessLicense = partial.businessLicense ?? '';
