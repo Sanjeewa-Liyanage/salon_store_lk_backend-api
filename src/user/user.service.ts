@@ -1,6 +1,6 @@
-import { ConflictException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { userConverter } from './helpers/firestoredata-converter';
-import { User,SalonOwner } from './schema/user.schema';
+import { User, SalonOwner } from './schema/user.schema';
 import * as bcrypt from 'bcrypt';
 import { UserRegistrationDto } from './dto/userregister.dto';
 import { UserRole } from './enum/userrole.enum';
@@ -12,41 +12,114 @@ import { UserUpdateDto } from './dto/user-update.dto';
 import { UserStatus } from './enum/userstatus.enum';
 @Injectable()
 export class UserService {
-    constructor(private firebaseService:FirebaseService,
+    constructor(private firebaseService: FirebaseService,
         private resendMailService: ResendMailService
-    ){}
+    ) { }
 
-    private getUsersCollection(){
+    private getUsersCollection() {
         return this.firebaseService.getFirestore()
             .collection('users')
             .withConverter(userConverter);
     }
 
-    private generateVerificationToken():string{
+    private generateVerificationToken(): string {
         return randomBytes(32).toString('hex');
+    }
+
+    async getUsersWithPagination(
+        page = 1,
+        limit = 10,
+        status?: UserStatus,
+        role?: UserRole,
+    ) {
+        const normalizedPage = Number.isNaN(Number(page)) ? 1 : Math.max(1, Number(page));
+        const normalizedLimit = Number.isNaN(Number(limit)) ? 10 : Math.min(100, Math.max(1, Number(limit)));
+        const allowedRoles = [UserRole.SALON_OWNER, UserRole.CUSTOMER];
+
+        if (role && !allowedRoles.includes(role)) {
+            throw new BadRequestException('role must be SALON_OWNER or CUSTOMER');
+        }
+
+        let query: FirebaseFirestore.Query = this.getUsersCollection();
+
+        if (status) {
+            query = query.where('status', '==', status);
+        }
+
+        if (role) {
+            query = query.where('role', '==', role);
+        } else {
+            query = query.where('role', 'in', allowedRoles);
+        }
+
+        const totalSnapshot = await query.get();
+        const total = totalSnapshot.size;
+        const totalPages = total === 0 ? 0 : Math.ceil(total / normalizedLimit);
+        const offset = (normalizedPage - 1) * normalizedLimit;
+
+        const paginatedSnapshot = await query
+            .orderBy('registeredAt', 'desc')
+            .offset(offset)
+            .limit(normalizedLimit)
+            .get();
+
+        const users = paginatedSnapshot.docs.map((doc) => {
+            const user = doc.data() as any;
+            const {
+                password,
+                refreshToken,
+                emailVerificationToken,
+                emailVerificationTokenExpires,
+                otp,
+                otpExpires,
+                ...safeUser
+            } = user;
+
+            return {
+                id: doc.id,
+                ...safeUser,
+            };
+        });
+
+        return {
+            data: users,
+            pagination: {
+                page: normalizedPage,
+                limit: normalizedLimit,
+                total,
+                totalPages,
+                hasNext: normalizedPage < totalPages,
+                hasPrev: normalizedPage > 1,
+            },
+            filters: {
+                status: status ?? null,
+                role: role ?? 'SALON_OWNER,CUSTOMER',
+            },
+        };
     }
 
 
     async createUser(dto: UserRegistrationDto) {
         const collection = this.getUsersCollection();
-        if(await this.findByEmail(dto.email)){
+        if (await this.findByEmail(dto.email)) {
             throw new ConflictException('Email already in use');
         }
 
         const role = (dto.role as UserRole) || UserRole.CUSTOMER;
         const userCode = await this.generateUserCode(role); // Generate custom ID
-       
-        const userData:Partial<User> = {
+
+        const userData: Partial<User> = {
             ...dto,
             isActive: true,
             isVerified: false,
+            status: UserStatus.PENDING_VERIFICATION,
             emailVerificationToken: this.generateVerificationToken(),
             emailVerificationTokenExpires: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
             role: role,
             registeredAt: new Date(),
             userCode: userCode,
         }
-        
+
         if (userData.password) {
             const salt = await bcrypt.genSalt(10);
             userData.password = await bcrypt.hash(userData.password, salt);
@@ -55,27 +128,29 @@ export class UserService {
         const newUser = new User(userData);
         const ref = await collection.add(newUser);
         newUser.id = ref.id;
-        const {password, ...result} = newUser;
+        const { password, ...result } = newUser;
         await this.resendMailService.sendVerificationEmail(newUser.email!, newUser.emailVerificationToken!);
         return result;
     }
 
     async createSalonOwner(data: Partial<SalonOwner>) {
         const collection = this.getUsersCollection();
-        
+
         if (data.password) {
             const salt = await bcrypt.genSalt(10);
             data.password = await bcrypt.hash(data.password, salt);
         }
-// Generate userCode for Salon Owner
+        // Generate userCode for Salon Owner
         data.userCode = await this.generateUserCode(UserRole.SALON_OWNER);
+        data.isActive = true;
         data.isVerified = false;
+        data.status = UserStatus.PENDING_VERIFICATION;
         data.emailVerificationToken = this.generateVerificationToken();
         data.emailVerificationTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours from now
-        
+
         const newOwner = new SalonOwner(data);
 
-        await collection.add(newOwner); 
+        await collection.add(newOwner);
         await this.resendMailService.sendVerificationEmail(newOwner.email!, newOwner.emailVerificationToken!);
         return newOwner;
     }
@@ -86,29 +161,29 @@ export class UserService {
             .get();
         if (querySnapshot.empty) return null;
         const doc = querySnapshot.docs[0];
-       return{
+        return {
             id: doc.id,
             ...doc.data()
-       }
+        }
     }
 
     async findOne(id: string) {
-    const doc = await this.getUsersCollection().doc(id).get();
+        const doc = await this.getUsersCollection().doc(id).get();
 
-    if (!doc.exists) return null;
+        if (!doc.exists) return null;
 
-    const user = doc.data();
+        const user = doc.data();
 
-    if (!user) return null;
+        if (!user) return null;
 
-    
-    const { password, refreshToken, ...safeUser } = user;
 
-    return {
-        id: doc.id,
-        ...safeUser,
-    };
-}
+        const { password, refreshToken, ...safeUser } = user;
+
+        return {
+            id: doc.id,
+            ...safeUser,
+        };
+    }
 
 
     async updateRefreshToken(userId: string, refreshToken: string) {
@@ -146,7 +221,7 @@ export class UserService {
             }
 
             const nextCount = currentCount + 1;
-            
+
             // Format: SSL[Role]-[Year]-[0000]
             // e.g., SSLC-26-0001
             const countStr = nextCount.toString().padStart(4, '0');
@@ -159,38 +234,38 @@ export class UserService {
         });
     }
 
-    async validateUser(email:string, password:string):Promise<any>{
+    async validateUser(email: string, password: string): Promise<any> {
         const user = await this.findByEmail(email);
-        if(!user) return null;
+        if (!user) return null;
 
         const isPasswordValid = await bcrypt.compare(password, user.password);
-        if(!isPasswordValid) return null;
+        if (!isPasswordValid) return null;
 
         const { password: _, ...result } = user;
         return result;
     }
     // methods for email verification
     async findByVerificationToken(token: string) {
-    const snapshot = await this.getUsersCollection()
-        .where('emailVerificationToken', '==', token)
-        .limit(1)
-        .get();
+        const snapshot = await this.getUsersCollection()
+            .where('emailVerificationToken', '==', token)
+            .limit(1)
+            .get();
 
-    if (snapshot.empty) return null;
+        if (snapshot.empty) return null;
 
-    const doc = snapshot.docs[0];
-    const user = doc.data();
+        const doc = snapshot.docs[0];
+        const user = doc.data();
 
-    const expires = user.emailVerificationTokenExpires instanceof Date
-        ? user.emailVerificationTokenExpires
-        : (user.emailVerificationTokenExpires as any)?.toDate?.();
+        const expires = user.emailVerificationTokenExpires instanceof Date
+            ? user.emailVerificationTokenExpires
+            : (user.emailVerificationTokenExpires as any)?.toDate?.();
 
-    if (!expires || expires < new Date()) {
-        console.log("TOKEN EXPIRED");
-        return null;
-    }
+        if (!expires || expires < new Date()) {
+            console.log("TOKEN EXPIRED");
+            return null;
+        }
 
-    return { id: doc.id, ...user };
+        return { id: doc.id, ...user };
     }
 
 
@@ -198,10 +273,11 @@ export class UserService {
         await this.getUsersCollection()
             .doc(userId)
             .update({
-            isVerified: true,
-            emailVerificationToken: null,
-            emailVerificationTokenExpires: null,
-        });
+                isVerified: true,
+                status: UserStatus.ACTIVE,
+                emailVerificationToken: null,
+                emailVerificationTokenExpires: null,
+            });
     }
     //? methods for password reset 
     async sendOtpToEmail(email: string): Promise<boolean> {
@@ -210,13 +286,13 @@ export class UserService {
             return false;
         }
         const otp = OtpGeneratorHelper.generateOtp();
-        await this.getUsersCollection()            
-        .doc(user.id)
-        .update({
-            otp: otp,
-            otpExpires: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes
-        });
-       
+        await this.getUsersCollection()
+            .doc(user.id)
+            .update({
+                otp: otp,
+                otpExpires: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes
+            });
+
         await this.resendMailService.sendPasswordResetEmail(user.email, otp);
 
         return true;
@@ -228,7 +304,7 @@ export class UserService {
             .where('otp', '==', otp)
             .where('otpExpires', '>', new Date())
             .get();
-        
+
         return !snapshot.empty;
     }
 
@@ -247,9 +323,9 @@ export class UserService {
             });
     }
 
-    async updateUser(id: string, updateDto: UserUpdateDto):Promise<boolean>{
+    async updateUser(id: string, updateDto: UserUpdateDto): Promise<boolean> {
         const user = await this.findOne(id);
-        if(!user) return false;
+        if (!user) return false;
 
         if (updateDto.email && updateDto.email !== user.email) {
             const existingUser = await this.findByEmail(updateDto.email);
@@ -270,7 +346,7 @@ export class UserService {
         return true;
     }
 
-    async suspendUser(id:string){
+    async suspendUser(id: string) {
         const collection = this.getUsersCollection();
         const userDoc = await collection.doc(id).get();
         if (!userDoc.exists) {
@@ -283,7 +359,7 @@ export class UserService {
         return { message: 'User suspended successfully', userId: id };
     }
 
-    async unsuspendUser(id:string){
+    async unsuspendUser(id: string) {
         const collection = this.getUsersCollection();
         const userDoc = await collection.doc(id).get();
         if (!userDoc.exists) {
@@ -294,11 +370,11 @@ export class UserService {
             status: UserStatus.ACTIVE
         });
         return { message: 'User unsuspended successfully', userId: id };
-        
+
     }
 
     async checkVerified(id: string): Promise<boolean> {
-    const doc = await this.getUsersCollection().doc(id).get();
+        const doc = await this.getUsersCollection().doc(id).get();
 
         if (!doc.exists) {
             throw new NotFoundException(`User with id "${id}" not found`);
@@ -311,9 +387,11 @@ export class UserService {
         }
 
         return data.isVerified === true;
-        }
-
-
     }
+
+
+}
+
+
 
 

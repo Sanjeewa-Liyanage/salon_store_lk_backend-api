@@ -6,10 +6,31 @@ import { AuthGuard } from '@nestjs/passport';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from './enum/userrole.enum';
 import { ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { UserStatus } from './enum/userstatus.enum';
 
 @Controller('user')
 export class UserController {
   constructor(private readonly userService: UserService) {}
+
+  @Get('all')
+  @UseGuards(AuthGuard('jwt'))
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Get all users with pagination (Admin only)' })
+  @ApiResponse({ status: 200, description: 'Paginated users list returned successfully.' })
+  @ApiResponse({ status: 403, description: 'Access denied. Admin role required.' })
+  async getAllUsers(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('status') status?: UserStatus,
+    @Query('role') role?: UserRole,
+  ) {
+    return this.userService.getUsersWithPagination(
+      page ? Number(page) : 1,
+      limit ? Number(limit) : 10,
+      status,
+      role,
+    );
+  }
 
   @Get('me')
   @UseGuards(AuthGuard('jwt'))
