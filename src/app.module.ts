@@ -14,6 +14,9 @@ import { PlanController } from './plan/plan.controller';
 import { PlanService } from './plan/plan.service';
 import { PlanModule } from './plan/plan.module';
 import { PaymentModule } from './payment/payment.module';
+import { DashboardController } from './dashboard/dashboard.controller';
+import { DashboardService } from './dashboard/dashboard.service';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -27,9 +30,10 @@ import { PaymentModule } from './payment/payment.module';
     SalonModule,
     AdsModule,
     PlanModule,
-    PaymentModule
+    PaymentModule,
+    DashboardModule
   ],
-  controllers: [AppController, AdsController, PlanController],
-  providers: [AppService, AdsService, PlanService],
+  controllers: [AppController, AdsController, PlanController, DashboardController],
+  providers: [AppService, AdsService, PlanService, DashboardService],
 })
 export class AppModule {}
