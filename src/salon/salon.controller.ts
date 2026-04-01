@@ -37,13 +37,15 @@ export class SalonController {
     @ApiOperation({ summary: 'Get all salons (Admin only)' })
     @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
     @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
+    @ApiQuery({ name: 'type', required: false, type: String, example: 'active', description: 'Filter by status: active, suspended, rejected, pending, inactive' })
     @ApiResponse({ status: 200, description: 'List of all salons.'})
     @ApiResponse({ status: 403, description: 'Access denied. Admin role required.'})
     async getAllSalons(
         @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
         @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
+        @Query('type') type?: string,
     ) {
-        return this.salonService.getAllSalons(page, limit);
+        return this.salonService.getAllSalons(page, limit, type);
     }
 
     @UseGuards(AuthGuard('jwt'), RolesGuard)

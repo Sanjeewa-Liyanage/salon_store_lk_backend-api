@@ -205,7 +205,7 @@ export class SalonService {
 
     }
 
-    async getAllSalons(page = 1, limit = 10) {
+    async getAllSalons(page = 1, limit = 10, type?: string) {
         if (page < 1) {
             throw new BadRequestException('Page must be greater than or equal to 1');
         }
@@ -214,16 +214,46 @@ export class SalonService {
         }
 
         const collection = this.getSalonsCollection();
+
+        const typeToStatusMap: Record<string, SalonStatus> = {
+            active: SalonStatus.ACTIVE,
+            suspended: SalonStatus.SUSPENDED,
+            rejected: SalonStatus.REJECTED,
+            pending: SalonStatus.PENDING_VERIFICATION,
+            inactive: SalonStatus.INACTIVE,
+        };
+
+        const normalizedType = type?.toLowerCase().trim();
+        const filterStatus = normalizedType
+            ? typeToStatusMap[normalizedType]
+            : undefined;
+
+        if (normalizedType && !filterStatus) {
+            throw new BadRequestException('Invalid type. Allowed values: active, suspended, rejected, pending, inactive');
+        }
+
+        let query: FirebaseFirestore.Query = collection;
+        if (filterStatus) {
+            query = query.where('status', '==', filterStatus);
+        }
+
+        const totalSnapshot = await query.get();
+        const totalItems = totalSnapshot.size;
+        const totalPages = totalItems === 0 ? 0 : Math.ceil(totalItems / limit);
         const offset = (page - 1) * limit;
-        const snapshot = await collection
+
+        const snapshot = await query
             .orderBy('createdAt', 'desc')
             .offset(offset)
-            .limit(limit + 1)
+            .limit(limit)
             .get();
 
-        const hasNext = snapshot.docs.length > limit;
-        const salonDocs = (hasNext ? snapshot.docs.slice(0, limit) : snapshot.docs)
-            .map(doc => ({ id: doc.id, ...doc.data() }));
+        const hasNext = page < totalPages;
+        const hasPrevious = page > 1;
+        const salonDocs: Array<Record<string, any>> = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...(doc.data() as Record<string, any>),
+        }));
 
         // Fetch owner names for each salon
         const salons = await Promise.all(
@@ -247,55 +277,16 @@ export class SalonService {
             pagination: {
                 page,
                 limit,
+                totalItems,
+                totalPages,
+                hasPrevious,
                 hasNext,
             },
         };
     }
 
     async getPendingSalons(page = 1, limit = 10) {
-        if (page < 1) {
-            throw new BadRequestException('Page must be greater than or equal to 1');
-        }
-        if (limit < 1 || limit > 100) {
-            throw new BadRequestException('Limit must be between 1 and 100');
-        }
-        const collection = this.getSalonsCollection();
-        const offset = (page - 1) * limit;
-        const snapshot = await collection
-            .where('status', '==', SalonStatus.PENDING_VERIFICATION)
-            .orderBy('createdAt', 'desc')
-            .offset(offset)
-            .limit(limit + 1)
-            .get();
-        const hasNext = snapshot.docs.length > limit;
-        const salonDocs = (hasNext ? snapshot.docs.slice(0, limit) : snapshot.docs)
-            .map(doc => ({ id: doc.id, ...doc.data() }));
-
-        // Fetch owner names for each salon
-        const salons = await Promise.all(
-            salonDocs.map(async (salon) => {
-                let ownerName = 'Unknown';
-                if (salon.ownerId) {
-                    const owner = await this.userService.findOne(salon.ownerId);
-                    ownerName = owner 
-                        ? `${owner.firstName || ''} ${owner.lastName || ''}`.trim()
-                        : 'Unknown';
-                }
-                return {
-                    ...salon,
-                    ownerName,
-                };
-            })
-        );
-
-        return {
-            data: salons,
-            pagination: {
-                page,
-                limit,
-                hasNext,
-            },
-        };
+        return this.getAllSalons(page, limit, 'pending');
     }
 
 
