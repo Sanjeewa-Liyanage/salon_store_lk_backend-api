@@ -4,9 +4,9 @@ import { FirebaseService } from '../firebase/firebase.service';
 import { salonConverter } from './helpers/salon.converter';
 import { SalonCreateDto } from './dto/salon-create.dto';
 import { SalonStatus } from './enum/salonstatus.enum';
-import { stat } from 'fs';
 import { UserService } from '../user/user.service';
 import { ResendMailService } from '../common/mail/resendmail.service';
+import { UserRole } from '../user/enum/userrole.enum';
 
 @Injectable()
 export class SalonService {
@@ -22,6 +22,32 @@ export class SalonService {
             .collection('salons')
             .withConverter(salonConverter);
 
+    }
+
+    private toFirestorePlain<T>(value: T): T {
+        if (value === null || value === undefined) {
+            return value;
+        }
+
+        if (value instanceof Date) {
+            return value;
+        }
+
+        if (Array.isArray(value)) {
+            return value.map((item) => this.toFirestorePlain(item)) as T;
+        }
+
+        if (typeof value === 'object') {
+            const plainObject: Record<string, unknown> = {};
+            Object.entries(value as Record<string, unknown>).forEach(([key, nestedValue]) => {
+                if (nestedValue !== undefined) {
+                    plainObject[key] = this.toFirestorePlain(nestedValue);
+                }
+            });
+            return plainObject as T;
+        }
+
+        return value;
     }
 
     private async generateSalonCode(): Promise<string>{
@@ -42,6 +68,16 @@ export class SalonService {
     }
     async createSalon(dto: SalonCreateDto, ownerId: string) {
         const collection = this.getSalonsCollection();
+
+        const owner = await this.userService.findOne(ownerId);
+        if (!owner) {
+            throw new NotFoundException('Owner not found');
+        }
+
+        if (owner.role !== UserRole.SALON_OWNER) {
+            throw new ForbiddenException('Only salon owners can create salons');
+        }
+
         //check owner is verified or not
 
        const isVerifiedOwner = await this.userService.checkVerified(ownerId);
@@ -51,9 +87,17 @@ export class SalonService {
         
 
         const coordinates = await this.geocodingService.getCoordinates(dto.address, dto.city);
+        const contactInfo = dto.contactInfo ?? (dto.phoneNumber ? { phoneNumber: dto.phoneNumber } : undefined);
+        const phoneNumber = contactInfo?.phoneNumber ?? dto.phoneNumber;
+
+        if (!phoneNumber) {
+            throw new BadRequestException('A contact phone number is required');
+        }
 
         const salonData: any = {
             ...dto,
+            phoneNumber,
+            contactInfo,
             isActive: dto.isActive !== undefined ? dto.isActive : true,
             status: SalonStatus.PENDING_VERIFICATION,
             createdAt: new Date(),
@@ -66,10 +110,11 @@ export class SalonService {
         const salonCode = await this.generateSalonCode();
         salonData.salonCode = salonCode;
 
-        const docRef = await collection.add(salonData);
+        const firestoreSalonData = this.toFirestorePlain(salonData);
+        const docRef = await collection.add(firestoreSalonData);
         return { message: 'Salon created successfully',
             salonId: docRef.id,
-            result: salonData
+            result: firestoreSalonData
          };
     }
 
@@ -104,12 +149,43 @@ export class SalonService {
     
     async updateSalon(id: string, dto: Partial<SalonCreateDto>) {
         const collection = this.getSalonsCollection();
+        const salonDoc = await collection.doc(id).get();
+        if (!salonDoc.exists) {
+            throw new NotFoundException('Salon not found');
+        }
+
+        const existingSalon = salonDoc.data();
+        const mergedContactInfo = dto.contactInfo
+            ? {
+                ...(existingSalon?.contactInfo ?? {}),
+                ...dto.contactInfo,
+                ...(dto.phoneNumber ? { phoneNumber: dto.phoneNumber } : {}),
+            }
+            : dto.phoneNumber
+                ? {
+                    ...(existingSalon?.contactInfo ?? {}),
+                    phoneNumber: dto.phoneNumber,
+                }
+                : undefined;
+
+        const phoneNumber = dto.phoneNumber ?? mergedContactInfo?.phoneNumber;
         const SalonData: any ={
             ...dto,
+            ...(mergedContactInfo ? { contactInfo: mergedContactInfo } : {}),
+            ...(phoneNumber ? { phoneNumber } : {}),
             updatedAt: new Date(),
+        };
+
+        if (SalonData.phoneNumber === undefined) {
+            delete SalonData.phoneNumber;
         }
-        await collection.doc(id).update(SalonData);
-        return { message: 'Salon updated successfully', result: SalonData };
+        if (SalonData.contactInfo === undefined) {
+            delete SalonData.contactInfo;
+        }
+
+        const firestoreUpdateData = this.toFirestorePlain(SalonData);
+        await collection.doc(id).update(firestoreUpdateData);
+        return { message: 'Salon updated successfully', result: firestoreUpdateData };
     }
 
 

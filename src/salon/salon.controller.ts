@@ -15,7 +15,8 @@ export class SalonController {
     constructor(private salonService: SalonService) {}
 
     @Post('create')
-    @UseGuards(AuthGuard('jwt')) 
+    @UseGuards(AuthGuard('jwt'), RolesGuard)
+    @Roles(UserRole.SALON_OWNER)
     @ApiOperation({ summary: 'Create a new salon' })
     @ApiResponse({ status: 201, description: 'The salon has been successfully created.'})
     async createSalon(@Body() dto: SalonCreateDto, @Req() req: any) {
@@ -60,13 +61,23 @@ export class SalonController {
         return this.salonService.getPendingSalons(page, limit);
     }
 
-    @UseGuards(AuthGuard('jwt'))
+    @UseGuards(AuthGuard('jwt'), RolesGuard)
     @Roles(UserRole.SALON_OWNER)
     @Get('owner')
     @ApiOperation({ summary: 'Get salons owned by the authenticated user' })
     @ApiResponse({ status: 200, description: 'List of salons owned by the user.'})
     async getSalonsByOwner(@Req() req: any) {
         return this.salonService.getbyOwner(req.user.sub);
+    }
+
+    @Get('active/all')
+    @ApiOperation({ summary: 'Get active salons ranked by ad engagement' })
+    @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+    @ApiResponse({ status: 200, description: 'Paginated list of active salons (10 per page), sorted by ad count.' })
+    async getAllActiveSalons(
+        @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    ) {
+        return this.salonService.getactiveallsalons(page);
     }
 
     @Get(':id')
@@ -137,14 +148,4 @@ export class SalonController {
         return this.salonService.rejectSalon(id, reason);
     }
 
-    @Get('active/all')
-    @ApiOperation({ summary: 'Get active salons ranked by ad engagement' })
-    @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
-    @ApiResponse({ status: 200, description: 'Paginated list of active salons (10 per page), sorted by ad count.' })
-    async getAllActiveSalons(
-        @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
-    ) {
-        return this.salonService.getactiveallsalons(page);
-    }
-    
 }

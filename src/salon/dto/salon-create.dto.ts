@@ -1,12 +1,71 @@
-import { IsString, IsNotEmpty, IsOptional, IsEmail, IsBoolean, IsEnum, IsObject } from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+    IsArray,
+    IsBoolean,
+    IsNotEmpty,
+    IsNumber,
+    IsOptional,
+    IsString,
+    IsUrl,
+    ValidateNested,
+} from 'class-validator';
+
+class ContactInfoDto {
+    @IsOptional()
+    @IsString()
+    phoneNumber?: string;
+
+    @IsOptional()
+    @IsString()
+    whatsappNumber?: string;
+}
+
+class SalonServiceItemDto {
+    @IsString()
+    @IsNotEmpty()
+    name: string;
+
+    @IsNumber()
+    price: number;
+
+    @IsNumber()
+    duration: number;
+}
+
+class SocialMediaLinksDto {
+    @IsOptional()
+    @IsUrl()
+    facebook?: string;
+
+    @IsOptional()
+    @IsUrl()
+    instagram?: string;
+
+    @IsOptional()
+    @IsUrl()
+    twitter?: string;
+
+    @IsOptional()
+    @IsUrl()
+    tiktok?: string;
+
+    @IsOptional()
+    @IsUrl()
+    youtube?: string;
+}
 
 export class SalonCreateDto{
     @IsString()
     @IsNotEmpty()
     salonName: string;
 
+    @IsOptional()
     @IsString()
-    description:string;
+    overview?: string;
+
+    @IsOptional()
+    @IsString()
+    description?:string;
 
     @IsString()
     @IsNotEmpty()
@@ -17,8 +76,12 @@ export class SalonCreateDto{
     city: string;
 
     @IsString()
-    @IsNotEmpty()
-    phoneNumber: string;
+    phoneNumber?: string;
+
+    @IsOptional()
+    @ValidateNested()
+    @Type(() => ContactInfoDto)
+    contactInfo?: ContactInfoDto;
 
     @IsOptional()
     @IsBoolean()
@@ -26,23 +89,26 @@ export class SalonCreateDto{
 
     @IsOptional()
     @IsString()
-    openingTime?: Date;
+    openingTime?: string;
 
     @IsOptional()
     @IsString()
-    closingTime?: Date;
+    closingTime?: string;
 
     @IsOptional()
-    @IsObject()
-    services?: {
-        name: string;
-        price: number;
-        duration: number; 
-    }[];
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => SalonServiceItemDto)
+    services?: SalonServiceItemDto[];
+
     @IsOptional()
+    @IsArray()
     @IsString({ each: true })
     images?: string[];
 
-
+    @IsOptional()
+    @ValidateNested()
+    @Type(() => SocialMediaLinksDto)
+    socialMediaLinks?: SocialMediaLinksDto;
 
 }
