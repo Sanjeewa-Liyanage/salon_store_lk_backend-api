@@ -2,11 +2,16 @@ import { SalonStatus } from "../enum/salonstatus.enum";
 export class SalonSchema{
     id?: string;
     salonCode?: string; 
+    overview?: string;
     salonName?: string;
     description?: string;
     address?: string;
     city?: string;
     phoneNumber?: string;
+    contactInfo?: {
+        phoneNumber?: string;
+        whatsappNumber?: string;
+    }
     location?: {
         latitude: number;
         longitude: number;
@@ -25,6 +30,13 @@ export class SalonSchema{
     closingTime?: Date;
     rejectionReason?: string;
     suspensionReason?: string;
+    socialMediaLinks?: {
+        facebook?: string;
+        instagram?: string;
+        twitter?: string;
+        tiktok?: string;
+        youtube?: string;
+    };
     
 
 
