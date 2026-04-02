@@ -25,6 +25,16 @@ export class AdsController {
         return this.adsService.createAd(dto, req.user.sub); 
     }
 
+    @Get('active/:id')
+    async getActiveAdById(@Param('id') id: string) {
+        return this.adsService.getActiveAdById(id);
+    }
+
+    @Get(':id')
+    async getAdById(@Param('id') id: string) {
+        return this.adsService.getActiveAdById(id);
+    }
+
     @Patch('approve/:id')
     @UseGuards(AuthGuard('jwt'))
     @Roles(UserRole.ADMIN)
