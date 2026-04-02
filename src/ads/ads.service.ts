@@ -428,6 +428,42 @@ export class AdsService {
             throw new BadRequestException('Failed to retrieve ads by status');
         }
     }
+
+    async getActiveAdById(id: string): Promise<{
+        id: string;
+        title?: string;
+        description?: string;
+        imageUrl?: string[];
+        startDate?: Date;
+        salonName: string;
+    }>{
+        const collection = this.getCollection();
+        const docRef = collection.doc(id);
+        const doc = await docRef.get();
+
+        if (!doc.exists) {
+            throw new BadRequestException(`Ad with ID ${id} not found`);
+        }
+
+        const ad = doc.data() as Ad;
+
+        if (ad.status !== AdStatus.APPROVED) {
+            throw new BadRequestException(`Ad with ID ${id} is not approved`);
+        }
+
+        const salonNameMap = await this.getSalonNameMap(
+            ad.salonId ? [ad.salonId] : [],
+        );
+
+        return {
+            id: doc.id,
+            title: ad.title,
+            description: ad.description,
+            imageUrl: ad.imageUrl,
+            startDate: ad.startDate,
+            salonName: ad.salonId ? salonNameMap.get(ad.salonId) ?? 'Unknown Salon' : 'Unknown Salon',
+        };
+    }
     
 }
 
