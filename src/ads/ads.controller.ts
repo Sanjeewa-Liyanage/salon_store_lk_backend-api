@@ -25,16 +25,6 @@ export class AdsController {
         return this.adsService.createAd(dto, req.user.sub); 
     }
 
-    @Get('active/:id')
-    async getActiveAdById(@Param('id') id: string) {
-        return this.adsService.getActiveAdById(id);
-    }
-
-    @Get(':id')
-    async getAdById(@Param('id') id: string) {
-        return this.adsService.getActiveAdById(id);
-    }
-
     @Patch('approve/:id')
     @UseGuards(AuthGuard('jwt'))
     @Roles(UserRole.ADMIN)
@@ -76,10 +66,11 @@ export class AdsController {
         return this.adsService.getAdsByStatus(status, pageNum, limitNum);
     }
 
-    @Get(':salonId')
-    async getAdsBySalonId(@Req()req: any){
-        return this.adsService.getAdsBySalonId(req.params.salonId);
+    @Get('active/:id')
+    async getActiveAdById(@Param('id') id: string) {
+        return this.adsService.getActiveAdById(id);
     }
+    //todo change if needed
 
     @Get(':id/payment')
     @UseGuards(AuthGuard('jwt'))
@@ -105,6 +96,16 @@ export class AdsController {
         } else {
             throw new BadRequestException('Unauthorized: Only admin or salon owner can access this resource');
         }
+    }
+
+    @Get('salon/:salonId')
+    async getAdsBySalonId(@Req()req: any){
+        return this.adsService.getAdsBySalonId(req.params.salonId);
+    }
+
+    @Get(':id')
+    async getAdById(@Param('id') id: string) {
+        return this.adsService.getActiveAdById(id);
     }
 
 }
