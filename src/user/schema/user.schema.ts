@@ -19,6 +19,7 @@ export class UserSchema {
     emailVerificationTokenExpires?: Date;
     otp?: string;
     otpExpires?: Date;
+    profilePictureUrl?: string;
 
     // optional 
     businessLicense?: string;
