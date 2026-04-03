@@ -7,6 +7,7 @@ import { SalonStatus } from './enum/salonstatus.enum';
 import { UserService } from '../user/user.service';
 import { ResendMailService } from '../common/mail/resendmail.service';
 import { UserRole } from '../user/enum/userrole.enum';
+import { NotificationsGateway } from '../notifications/notifications.gateway';
 
 @Injectable()
 export class SalonService {
@@ -14,7 +15,8 @@ export class SalonService {
         private geocodingService: GeocodingService,
         private firebaseService: FirebaseService,
         private userService: UserService,
-        private resendMailService: ResendMailService
+        private resendMailService: ResendMailService,
+        private notificationsGateway: NotificationsGateway,
     ){}
 
     private getSalonsCollection(){
@@ -112,6 +114,18 @@ export class SalonService {
 
         const firestoreSalonData = this.toFirestorePlain(salonData);
         const docRef = await collection.add(firestoreSalonData);
+
+        // Send real-time notification to admins
+        const ownerName = `${owner.firstName || ''} ${owner.lastName || ''}`.trim() || 'Unknown Owner';
+        const createdAt = new Date();
+        this.notificationsGateway.sendToAdmin('salon-created', {
+            salonId: docRef.id,
+            salonName: dto.salonName,
+            ownerName,
+            createdAt: createdAt.toISOString(),
+            message: `New salon "${dto.salonName}" created by ${ownerName} at ${createdAt.toLocaleString()}`,
+        });
+
         return { message: 'Salon created successfully',
             salonId: docRef.id,
             result: firestoreSalonData
