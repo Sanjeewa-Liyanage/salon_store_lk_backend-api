@@ -318,6 +318,7 @@ export class UserService {
             .doc(user.id)
             .update({
                 password: hashedPassword,
+                refreshToken: null,
                 otp: null,
                 otpExpires: null,
             });
@@ -424,6 +425,44 @@ export class UserService {
         }
 
         return { id: doc.id, ...safeUser, ...activity };
+    }
+
+    async passwordReset(userId: string, oldPassword: string, newPassword: string): Promise<any> {
+        const userDoc = await this.getUsersCollection().doc(userId).get();
+        if (!userDoc.exists) {
+            throw new NotFoundException('User not found');
+        }
+
+        const userData = userDoc.data() as User | undefined;
+        if (!userData?.password) {
+            throw new BadRequestException('Password is not set for this user');
+        }
+
+        if (oldPassword === newPassword) {
+            throw new BadRequestException('New password cannot be the same as old password');
+        }
+
+        const isOldPasswordValid = await bcrypt.compare(oldPassword, userData.password);
+        if (!isOldPasswordValid) {
+            throw new BadRequestException('Old password is incorrect');
+        }
+
+        const isSameAsCurrent = await bcrypt.compare(newPassword, userData.password);
+        if (isSameAsCurrent) {
+            throw new BadRequestException('New password cannot be the same as current password');
+        }
+
+        const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+        await this.getUsersCollection()
+            .doc(userId)
+            .update({
+                password: hashedNewPassword,
+                refreshToken: null,
+            });
+
+        return {
+            message: 'Password updated successfully. All sessions were signed out.'
+        };
     }
 
 }

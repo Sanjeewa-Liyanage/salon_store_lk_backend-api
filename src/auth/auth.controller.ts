@@ -7,6 +7,7 @@ import { Auth } from 'firebase-admin/auth';
 import { AuthGuard } from '@nestjs/passport';
 import { ForgotPasswordGuard } from './guards/forgotpw.guard';
 import { UserUpdateDto } from '../user/dto/user-update.dto';
+import { PasswordResetDto } from './dto/password-reset.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -42,6 +43,14 @@ export class AuthController {
         const userId = req['user']['sub'];
         return this.authService.updateUser(userId, updateDto);
     }
+
+    @Post('password-reset')
+    @UseGuards(AuthGuard('jwt'))
+    passwordReset(@Req() req: Request, @Body() dto: PasswordResetDto) {
+        const userId = req['user']['sub'];
+        return this.authService.passwordReset(userId, dto.oldPassword, dto.newPassword);
+    }
+
     @Post('refresh')
     @UseGuards(AuthGuard('jwt-refresh'))  // uses RtStrategy
     refreshTokens(@Req() req: Request) {

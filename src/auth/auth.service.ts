@@ -106,6 +106,10 @@ export class AuthService {
         return { message: 'Password reset successfully' };
     }
 
+    async passwordReset(userId: string, oldPassword: string, newPassword: string) {
+        return this.userService.passwordReset(userId, oldPassword, newPassword);
+    }
+
     async updateUser(id: string, updateDto: UserUpdateDto) {
         const updatedUser = await this.userService.updateUser(id, updateDto);
         if (!updatedUser) {
