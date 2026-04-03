@@ -105,7 +105,7 @@ export class AdsController {
 
     @Get(':id')
     async getAdById(@Param('id') id: string) {
-        return this.adsService.getActiveAdById(id);
+        return this.adsService.getAdById(id);
     }
 
 }
