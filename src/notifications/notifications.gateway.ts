@@ -24,7 +24,6 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
 
     handleConnection(@ConnectedSocket() client: Socket) {
         try {
-            // Extract token from: auth.token, query.token, or Authorization header
             const token =
                 client.handshake.auth?.token ||
                 client.handshake.query?.token ||
@@ -37,8 +36,8 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
                 return;
             }
 
-            // Verify the JWT using the same secret as the REST API
-            const secret = process.env.JWT_SECRET_KEY || 'YOUR_ACCESS_TOKEN_SECRET';
+
+            const secret = process.env.JWT_SECRET_KEY || '';
             let payload: TokenPayload;
 
             try {
@@ -77,7 +76,7 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
                 client.join(`salon_${userId}`);
             }
 
-            this.logger.log(`✅ User ${userId} (${role}) connected - Socket: ${client.id}`);
+            this.logger.log(` User ${userId} (${role}) connected - Socket: ${client.id}`);
             client.emit('authenticated', { userId, role, message: 'Successfully authenticated' });
 
         } catch (error) {
@@ -89,7 +88,7 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
 
     handleDisconnect(@ConnectedSocket() client: Socket) {
         const userId = client.data?.userId || 'unknown';
-        this.logger.log(`❌ User ${userId} disconnected - Socket: ${client.id}`);
+        this.logger.log(` User ${userId} disconnected - Socket: ${client.id}`);
     }
 
     private extractTokenFromHeader(authHeader: string | undefined): string | null {

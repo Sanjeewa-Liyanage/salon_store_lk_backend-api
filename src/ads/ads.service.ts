@@ -10,13 +10,15 @@ import { AdStatus } from './enum/adstatus.enum';
 import { PaymentStatus } from './enum/paymentstat.enum';
 import { start } from 'repl';
 import { PaymentService } from '../payment/payment.service';
+import { NotificationsGateway } from '../notifications/notifications.gateway';
 
 @Injectable()
 export class AdsService {
     constructor(private firebaseService: FirebaseService,
                 private planService: PlanService,
                 private salonService: SalonService,
-                private paymentService: PaymentService 
+                private paymentService: PaymentService,
+                private notificationsGateway: NotificationsGateway
                 ){}
 
     private getCollection(){
@@ -87,6 +89,14 @@ export class AdsService {
         
         try{
             const docRef = await collection.add(adData);
+            // send notification to admin
+            const salonName = await this.salonService.getSalonById(dto.salonId);
+            this.notificationsGateway.sendToAdmin('ad-submitted', {
+                salonName: salonName.salonName,
+                adId: docRef.id,
+                message: `New ad submitted for salon ${salonName.salonName} with title ${dto.title}` // you can customize this message as needed
+            })
+
             
             return {
                 message: 'Ad created successfully',
