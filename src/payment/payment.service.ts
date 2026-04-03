@@ -7,14 +7,16 @@ import { Payment } from './schema/payment.schema';
 import { PaymentStatus } from './enum/paymentstatus.enum';
 import { firestore } from 'firebase-admin';
 import { SalonService } from '../salon/salon.service';
+import { NotificationsGateway } from '../notifications/notifications.gateway';
 
 @Injectable()
 export class PaymentService {
     constructor(
         private firebaseService: FirebaseService,
         private salonService: SalonService,
+        private notificationsGateway: NotificationsGateway,
         @Inject('GENERATE_TRANSACTION_ID') private generateTransactionId: (prefix?: string) => string
-    ) {}
+    ) { }
 
     private getCollection() {
         return this.firebaseService
@@ -30,14 +32,17 @@ export class PaymentService {
     // ─── owner submits slip ───────────────────────────────────────────────────
 
     async submitPayment(dto: CreatePaymentDto, userId: string): Promise<any> {
-        const adId = dto.referenceId; 
+        const adId = dto.referenceId;
         // verify the salon belongs to this user
         const adDoc = await this.getAdCollection().doc(adId).get();
         if (!adDoc.exists) {
             throw new BadRequestException(`Ad with ID ${adId} not found`);
         }
         const ad = adDoc.data();
-        await this.salonService.checkOwnership(ad?.salonId, userId);
+        if (!ad) {
+            throw new BadRequestException(`Ad with ID ${adId} has no data`);
+        }
+        await this.salonService.checkOwnership(ad.salonId, userId);
 
         // one payment per ad — reject if one already exists and isn't rejected
         const existing = await this.getCollection()
@@ -82,8 +87,18 @@ export class PaymentService {
 
         const docRef = await this.getCollection().add(paymentData as any);
         await this.updateAdPaymentStatus(dto.referenceId, PaymentStatus.PENDING_VERIFICATION);
+        // send notification to admin
+        const salonName = await this.salonService.getSalonById(ad.salonId);
+        this.notificationsGateway.sendToAdmin('payment-submitted', {
+            salonName: salonName.salonName,
+            paymentId: docRef.id,
+            adId: dto.referenceId,
+            message: `New payment submitted for ad ${dto.referenceId} by salon ${salonName.salonName}` // you can customize this message as needed
+        });
 
         return { message: 'Payment submitted successfully', paymentId: docRef.id };
+
+
     }
 
     // ─── admin actions ────────────────────────────────────────────────────────
@@ -183,4 +198,4 @@ export class PaymentService {
     }
 
 }
- //? this focused on the ads mainly if you want to use this payment service for another purpose you might be make separate functions for it use referenceId as your purpose id and update the relevant collection based on that
+//? this focused on the ads mainly if you want to use this payment service for another purpose you might be make separate functions for it use referenceId as your purpose id and update the relevant collection based on that
