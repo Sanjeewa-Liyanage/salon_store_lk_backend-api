@@ -2,6 +2,7 @@ import { WebSocketGateway, WebSocketServer, OnGatewayConnection, OnGatewayDiscon
 import { Server, Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
 import * as jwt from 'jsonwebtoken';
+import { NotificationsService } from './notifications.service';
 
 interface TokenPayload {
     sub: string;
@@ -21,6 +22,8 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
     server: Server;
 
     private readonly logger = new Logger(NotificationsGateway.name);
+
+    constructor(private notificationsService: NotificationsService) {}
 
     handleConnection(@ConnectedSocket() client: Socket) {
         try {
@@ -43,7 +46,7 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
             try {
                 payload = jwt.verify(token, secret) as TokenPayload;
             } catch (err) {
-                this.logger.warn(`Client ${client.id} rejected: Invalid token - ${err.message}`);
+                this.logger.warn(`Client ${client.id} rejected: Invalid token - ${err instanceof Error ? err.message : String(err)}`);
                 client.emit('error', { message: 'Invalid or expired token.' });
                 client.disconnect(true);
                 return;
@@ -80,7 +83,7 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
             client.emit('authenticated', { userId, role, message: 'Successfully authenticated' });
 
         } catch (error) {
-            this.logger.error(`Connection error: ${error.message}`);
+            this.logger.error(`Connection error: ${error instanceof Error ? error.message : String(error)}`);
             client.emit('error', { message: 'Authentication failed.' });
             client.disconnect(true);
         }
@@ -97,16 +100,73 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
         return type === 'Bearer' ? token : null;
     }
 
-    sendToAdmin(event: string, data: any) {
-        this.server.to('admin_room').emit(event, data);
+    private toEventTitle(event: string): string {
+        return event
+            .split('-')
+            .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+            .join(' ');
     }
 
-    sendToSalonOwner(salonId: string, event: string, data: any) {
-        this.server.to(`salon_${salonId}`).emit(event, data);
+    private buildNotificationContent(event: string, data: any) {
+        return {
+            title: data?.title || this.toEventTitle(event),
+            message: data?.message || this.toEventTitle(event),
+            type: data?.type || event,
+        };
     }
 
-    sendToUser(userId: string, event: string, data: any) {
-        this.server.to(`user_${userId}`).emit(event, data);
+    async sendToAdmin(event: string, data: any) {
+        try {
+            const content = this.buildNotificationContent(event, data);
+            const savedNotifications = await this.notificationsService.createForAdmins(content);
+
+            this.server.to('admin_room').emit(event, {
+                ...data,
+                notifications: savedNotifications,
+                notificationIds: savedNotifications.map((item) => item.id),
+            });
+        } catch (error) {
+            this.logger.error(`Failed to persist admin notification for event ${event}: ${error instanceof Error ? error.message : String(error)}`);
+            this.server.to('admin_room').emit(event, data);
+        }
+    }
+
+    async sendToSalonOwner(salonId: string, event: string, data: any) {
+        try {
+            const content = this.buildNotificationContent(event, data);
+            const savedNotification = await this.notificationsService.create({
+                recipientId: salonId,
+                ...content,
+            });
+
+            this.server.to(`salon_${salonId}`).emit(event, {
+                ...data,
+                notification: savedNotification,
+                notificationId: savedNotification.id,
+            });
+        } catch (error) {
+            this.logger.error(`Failed to persist salon owner notification for event ${event}: ${error instanceof Error ? error.message : String(error)}`);
+            this.server.to(`salon_${salonId}`).emit(event, data);
+        }
+    }
+
+    async sendToUser(userId: string, event: string, data: any) {
+        try {
+            const content = this.buildNotificationContent(event, data);
+            const savedNotification = await this.notificationsService.create({
+                recipientId: userId,
+                ...content,
+            });
+
+            this.server.to(`user_${userId}`).emit(event, {
+                ...data,
+                notification: savedNotification,
+                notificationId: savedNotification.id,
+            });
+        } catch (error) {
+            this.logger.error(`Failed to persist user notification for event ${event}: ${error instanceof Error ? error.message : String(error)}`);
+            this.server.to(`user_${userId}`).emit(event, data);
+        }
     }
 }
 
