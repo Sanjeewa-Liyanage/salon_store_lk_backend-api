@@ -28,10 +28,10 @@ export class AdsCreateDto{
     @IsNotEmpty()
     paymentMethod: PaymentMethod;
 
-    @ValidateIf(o => o.paymentMethod === PaymentMethod.BANK_TRANSFER)
-    @IsString()
-    @IsNotEmpty()
-    paymentProofUrl?: string;
+    // @ValidateIf(o => o.paymentMethod === PaymentMethod.BANK_TRANSFER)
+    // @IsString()
+    // @IsNotEmpty()
+    // paymentProofUrl?: string;
 
     @ValidateIf(o => o.paymentMethod === PaymentMethod.PAYMENT_GATEWAY)
     @IsString()
