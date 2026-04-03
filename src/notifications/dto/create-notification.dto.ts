@@ -1,4 +1,4 @@
-import { IsEnum, IsNotEmpty, IsString } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { NotificationStatus } from '../enum/notificationstatus.enum';
 
 export class CreateNotificationDto {
@@ -18,6 +18,7 @@ export class CreateNotificationDto {
     @IsNotEmpty()
     type: string;
 
+    @IsOptional()
     @IsEnum(NotificationStatus)
     status?: NotificationStatus;
 }
