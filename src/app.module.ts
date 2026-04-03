@@ -17,6 +17,7 @@ import { PaymentModule } from './payment/payment.module';
 import { DashboardController } from './dashboard/dashboard.controller';
 import { DashboardService } from './dashboard/dashboard.service';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -31,7 +32,8 @@ import { DashboardModule } from './dashboard/dashboard.module';
     AdsModule,
     PlanModule,
     PaymentModule,
-    DashboardModule
+    DashboardModule,
+    NotificationsModule
   ],
   controllers: [AppController, AdsController, PlanController, DashboardController],
   providers: [AppService, AdsService, PlanService, DashboardService],
