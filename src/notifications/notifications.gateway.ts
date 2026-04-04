@@ -25,6 +25,10 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
 
     constructor(private notificationsService: NotificationsService) {}
 
+    private normalizeRole(role: unknown): string {
+        return typeof role === 'string' ? role.trim().toUpperCase() : '';
+    }
+
     handleConnection(@ConnectedSocket() client: Socket) {
         try {
             const token =
@@ -53,7 +57,7 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
             }
 
             const userId = payload.sub;
-            const role = payload.role;
+            const role = this.normalizeRole(payload.role);
 
             if (!userId || !role) {
                 this.logger.warn(`Client ${client.id} rejected: Token missing sub or role`);
@@ -120,11 +124,26 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
             const content = this.buildNotificationContent(event, data);
             const savedNotifications = await this.notificationsService.createForAdmins(content);
 
-            this.server.to('admin_room').emit(event, {
-                ...data,
-                notifications: savedNotifications,
-                notificationIds: savedNotifications.map((item) => item.id),
-            });
+            if (savedNotifications.length === 0) {
+                this.logger.warn(`No admins found to receive event ${event}`);
+                return;
+            }
+
+            // Emit to each admin's dedicated user room so delivery does not depend only on role-room matching.
+            for (const notification of savedNotifications) {
+                this.server.to(`user_${notification.recipientId}`).emit(event, {
+                    ...data,
+                    notification,
+                    notificationId: notification.id,
+                    notifications: [notification],
+                    notificationIds: [notification.id],
+                });
+            }
+
+            const adminConnections = this.server.sockets.adapter.rooms.get('admin_room')?.size ?? 0;
+            this.logger.log(
+                `Admin event ${event} sent to ${savedNotifications.length} admin recipients (${adminConnections} sockets in admin_room)`,
+            );
         } catch (error) {
             this.logger.error(`Failed to persist admin notification for event ${event}: ${error instanceof Error ? error.message : String(error)}`);
             this.server.to('admin_room').emit(event, data);

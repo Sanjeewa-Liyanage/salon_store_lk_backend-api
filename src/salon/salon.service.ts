@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { GeocodingService } from '../common/services/geocoding.service';
 import { FirebaseService } from '../firebase/firebase.service';
 import { salonConverter } from './helpers/salon.converter';
@@ -11,6 +11,8 @@ import { NotificationsGateway } from '../notifications/notifications.gateway';
 
 @Injectable()
 export class SalonService {
+    private readonly logger = new Logger(SalonService.name);
+
     constructor(
         private geocodingService: GeocodingService,
         private firebaseService: FirebaseService,
@@ -118,13 +120,21 @@ export class SalonService {
         // Send real-time notification to admins
         const ownerName = `${owner.firstName || ''} ${owner.lastName || ''}`.trim() || 'Unknown Owner';
         const createdAt = new Date();
-        this.notificationsGateway.sendToAdmin('salon-created', {
+        const notificationPayload = {
             salonId: docRef.id,
             salonName: dto.salonName,
             ownerName,
             createdAt: createdAt.toISOString(),
             message: `New salon "${dto.salonName}" created by ${ownerName} at ${createdAt.toLocaleString()}`,
-        });
+        };
+
+        try {
+            await this.notificationsGateway.sendToAdmin('salon-created', notificationPayload);
+        } catch (error) {
+            this.logger.warn(
+                `Salon ${docRef.id} created, but failed to emit salon-created notification: ${error instanceof Error ? error.message : String(error)}`,
+            );
+        }
 
         return { message: 'Salon created successfully',
             salonId: docRef.id,
