@@ -119,15 +119,25 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
         };
     }
 
-    async sendToAdmin(event: string, data: any) {
+    async sendToAdmin(event: string, data: any): Promise<{ recipientCount: number; adminRoomConnections: number }> {
         try {
             const content = this.buildNotificationContent(event, data);
             const savedNotifications = await this.notificationsService.createForAdmins(content);
+            const adminConnections = this.server.sockets.adapter.rooms.get('admin_room')?.size ?? 0;
 
             if (savedNotifications.length === 0) {
                 this.logger.warn(`No admins found to receive event ${event}`);
-                return;
+                // Still emit to role room in case admins are connected but admin user docs are misconfigured.
+                this.server.to('admin_room').emit(event, data);
+                return { recipientCount: 0, adminRoomConnections: adminConnections };
             }
+
+            // Keep role-room broadcast for backwards compatibility with existing clients.
+            this.server.to('admin_room').emit(event, {
+                ...data,
+                notifications: savedNotifications,
+                notificationIds: savedNotifications.map((item) => item.id),
+            });
 
             // Emit to each admin's dedicated user room so delivery does not depend only on role-room matching.
             for (const notification of savedNotifications) {
@@ -139,14 +149,15 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
                     notificationIds: [notification.id],
                 });
             }
-
-            const adminConnections = this.server.sockets.adapter.rooms.get('admin_room')?.size ?? 0;
             this.logger.log(
                 `Admin event ${event} sent to ${savedNotifications.length} admin recipients (${adminConnections} sockets in admin_room)`,
             );
+            return { recipientCount: savedNotifications.length, adminRoomConnections: adminConnections };
         } catch (error) {
             this.logger.error(`Failed to persist admin notification for event ${event}: ${error instanceof Error ? error.message : String(error)}`);
             this.server.to('admin_room').emit(event, data);
+            const adminConnections = this.server.sockets.adapter.rooms.get('admin_room')?.size ?? 0;
+            return { recipientCount: 0, adminRoomConnections: adminConnections };
         }
     }
 

@@ -129,11 +129,19 @@ export class SalonService {
         };
 
         try {
-            await this.notificationsGateway.sendToAdmin('salon-created', notificationPayload);
+            const delivery = await this.notificationsGateway.sendToAdmin('salon-created', notificationPayload);
+            if (delivery.recipientCount === 0) {
+                this.logger.warn(
+                    `Salon ${docRef.id} notification sent with 0 admin recipients (${delivery.adminRoomConnections} sockets currently in admin_room)`,
+                );
+            }
         } catch (error) {
             this.logger.warn(
                 `Salon ${docRef.id} created, but failed to emit salon-created notification: ${error instanceof Error ? error.message : String(error)}`,
             );
+            if (error instanceof Error && error.stack) {
+                this.logger.debug(error.stack);
+            }
         }
 
         return { message: 'Salon created successfully',
