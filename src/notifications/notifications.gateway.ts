@@ -26,7 +26,31 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
     constructor(private notificationsService: NotificationsService) {}
 
     private normalizeRole(role: unknown): string {
-        return typeof role === 'string' ? role.trim().toUpperCase() : '';
+        if (typeof role !== 'string') {
+            return '';
+        }
+
+        const normalized = role
+            .trim()
+            .toUpperCase()
+            .replace(/[\s-]+/g, '_');
+
+        const compact = normalized.replace(/[^A-Z]/g, '');
+        if (compact === 'SALONOWNER') {
+            return 'SALON_OWNER';
+        }
+        if (compact === 'ADMIN') {
+            return 'ADMIN';
+        }
+        if (compact === 'CUSTOMER') {
+            return 'CUSTOMER';
+        }
+
+        return normalized;
+    }
+
+    private getRoomConnectionCount(room: string): number {
+        return this.server.sockets.adapter.rooms.get(room)?.size ?? 0;
     }
 
     handleConnection(@ConnectedSocket() client: Socket) {
@@ -72,7 +96,8 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
             client.data.email = payload.email;
 
             // Join user-specific room
-            client.join(`user_${userId}`);
+            const userRoom = `user_${userId}`;
+            client.join(userRoom);
 
             // Join role-based rooms
             if (role === 'ADMIN') {
@@ -83,7 +108,10 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
                 client.join(`salon_${userId}`);
             }
 
-            this.logger.log(` User ${userId} (${role}) connected - Socket: ${client.id}`);
+            const salonRoom = `salon_${userId}`;
+            this.logger.log(
+                `User ${userId} (${role}) connected - Socket: ${client.id} | user room: ${userRoom} (${this.getRoomConnectionCount(userRoom)} sockets) | salon room: ${salonRoom} (${this.getRoomConnectionCount(salonRoom)} sockets)`,
+            );
             client.emit('authenticated', { userId, role, message: 'Successfully authenticated' });
 
         } catch (error) {
@@ -123,7 +151,7 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
         try {
             const content = this.buildNotificationContent(event, data);
             const savedNotifications = await this.notificationsService.createForAdmins(content);
-            const adminConnections = this.server.sockets.adapter.rooms.get('admin_room')?.size ?? 0;
+            const adminConnections = this.getRoomConnectionCount('admin_room');
 
             if (savedNotifications.length === 0) {
                 this.logger.warn(`No admins found to receive event ${event}`);
@@ -156,27 +184,46 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
         } catch (error) {
             this.logger.error(`Failed to persist admin notification for event ${event}: ${error instanceof Error ? error.message : String(error)}`);
             this.server.to('admin_room').emit(event, data);
-            const adminConnections = this.server.sockets.adapter.rooms.get('admin_room')?.size ?? 0;
+            const adminConnections = this.getRoomConnectionCount('admin_room');
             return { recipientCount: 0, adminRoomConnections: adminConnections };
         }
     }
 
-    async sendToSalonOwner(salonId: string, event: string, data: any) {
+    async sendToSalonOwner(ownerId: string, event: string, data: any) {
         try {
             const content = this.buildNotificationContent(event, data);
             const savedNotification = await this.notificationsService.create({
-                recipientId: salonId,
+                recipientId: ownerId,
                 ...content,
             });
 
-            this.server.to(`salon_${salonId}`).emit(event, {
+            const salonRoom = `salon_${ownerId}`;
+            const userRoom = `user_${ownerId}`;
+            const payload = {
                 ...data,
                 notification: savedNotification,
                 notificationId: savedNotification.id,
-            });
+            };
+
+            // Emit to both rooms so delivery does not depend on role-room joins alone.
+            this.server.to(salonRoom).emit(event, payload);
+            this.server.to(userRoom).emit(event, payload);
+
+            const salonRoomConnections = this.getRoomConnectionCount(salonRoom);
+            const userRoomConnections = this.getRoomConnectionCount(userRoom);
+            if (salonRoomConnections + userRoomConnections === 0) {
+                this.logger.warn(
+                    `Salon owner event ${event} persisted for user ${ownerId}, but no active sockets in ${salonRoom} or ${userRoom}`,
+                );
+            } else {
+                this.logger.log(
+                    `Salon owner event ${event} sent to user ${ownerId} via ${salonRoom} (${salonRoomConnections}) and ${userRoom} (${userRoomConnections})`,
+                );
+            }
         } catch (error) {
             this.logger.error(`Failed to persist salon owner notification for event ${event}: ${error instanceof Error ? error.message : String(error)}`);
-            this.server.to(`salon_${salonId}`).emit(event, data);
+            this.server.to(`salon_${ownerId}`).emit(event, data);
+            this.server.to(`user_${ownerId}`).emit(event, data);
         }
     }
 
