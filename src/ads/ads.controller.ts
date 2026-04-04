@@ -6,6 +6,7 @@ import { AdsCreateDto } from './dto/adscreate.dto';
 import { UserRole } from '../user/enum/userrole.enum';
 import { AuthGuard } from '@nestjs/passport';
 import { SalonService } from '../salon/salon.service';
+import { AdsPaginationQueryDto } from './dto/ads-pagination-query.dto';
 
 
 
@@ -51,19 +52,15 @@ export class AdsController {
     @Get('admin/all')
     @UseGuards(AuthGuard('jwt'))
     @Roles(UserRole.ADMIN)
-    async getAllAdsAdmin(@Req() req: any, @Query('page') page?: string, @Query('limit') limit?: string) {
-        const pageNum = page ? parseInt(page) : undefined;
-        const limitNum = limit ? parseInt(limit) : undefined;
-        return this.adsService.getAllAds(pageNum, limitNum);
+    async getAllAdsAdmin(@Query() query: AdsPaginationQueryDto) {
+        return this.adsService.getAllAds(query.page, query.limit, query.type);
     }
 
     @Get('status/:status')
     @UseGuards(AuthGuard('jwt'))
     @Roles(UserRole.ADMIN)
-    async getAdsByStatus(@Param('status') status: string, @Query('page') page?: string, @Query('limit') limit?: string) {
-        const pageNum = page ? parseInt(page) : undefined;
-        const limitNum = limit ? parseInt(limit) : undefined;
-        return this.adsService.getAdsByStatus(status, pageNum, limitNum);
+    async getAdsByStatus(@Param('status') status: string, @Query() query: AdsPaginationQueryDto) {
+        return this.adsService.getAdsByStatus(status, query.page, query.limit);
     }
 
     @Get('active/:id')

@@ -314,10 +314,17 @@ export class AdsService {
     }
 
     // Admin-only: Get all ads from the database
-    async getAllAds(page?: number, limit?: number): Promise<any>{
+    async getAllAds(
+        page = 1,
+        limit = 10,
+        type: 'all' | 'active' | 'pending_approval' | 'rejected' = 'all',
+    ): Promise<any>{
         const collection = this.getCollection();
         
         try {
+            const normalizedPage = Number.isNaN(Number(page)) ? 1 : Math.max(1, Number(page));
+            const normalizedLimit = Number.isNaN(Number(limit)) ? 10 : Math.min(100, Math.max(1, Number(limit)));
+            const normalizedType = type ?? 'all';
             let query: FirebaseFirestore.Query<Ad> = collection;
             
             // Get all ads ordered by creation date (newest first)
@@ -328,14 +335,17 @@ export class AdsService {
             if (adsSnapshot.empty) {
                 return {
                     data: [],
-                    pagination: page !== undefined && limit !== undefined ? {
-                        currentPage: page,
-                        limit: limit,
+                    filter: {
+                        type: normalizedType,
+                    },
+                    pagination: {
+                        page: normalizedPage,
+                        limit: normalizedLimit,
                         totalItems: 0,
                         totalPages: 0,
-                        hasNextPage: false,
-                        hasPreviousPage: false
-                    } : undefined
+                        hasPrevious: false,
+                        hasNext: false,
+                    }
                 };
             }
             
@@ -350,31 +360,41 @@ export class AdsService {
                     .filter((salonId): salonId is string => Boolean(salonId)),
             );
             const adsWithSalonNames = ads.map(ad => this.mapAdWithSalonName(ad, salonNameMap));
-            
-            // If pagination parameters are provided, apply pagination
-            if (page !== undefined && limit !== undefined) {
-                const totalItems = adsWithSalonNames.length;
-                const totalPages = Math.ceil(totalItems / limit);
-                const offset = (page - 1) * limit;
-                const paginatedAds = adsWithSalonNames.slice(offset, offset + limit);
-                
-                return {
-                    data: paginatedAds,
-                    pagination: {
-                        currentPage: page,
-                        limit,
-                        totalItems,
-                        totalPages,
-                        hasNextPage: page < totalPages,
-                        hasPreviousPage: page > 1
-                    }
-                };
-            }
-            
-            // Return all ads without pagination
+
+            const filteredAds = adsWithSalonNames.filter((ad) => {
+                if (normalizedType === 'active') {
+                    return ad.status === AdStatus.ACTIVE || ad.status === AdStatus.APPROVED;
+                }
+
+                if (normalizedType === 'pending_approval') {
+                    return ad.status === AdStatus.PENDING_APPROVAL;
+                }
+
+                if (normalizedType === 'rejected') {
+                    return ad.status === AdStatus.REJECTED;
+                }
+
+                return true;
+            });
+
+            const totalItems = filteredAds.length;
+            const totalPages = totalItems === 0 ? 0 : Math.ceil(totalItems / normalizedLimit);
+            const offset = (normalizedPage - 1) * normalizedLimit;
+            const paginatedAds = filteredAds.slice(offset, offset + normalizedLimit);
+
             return {
-                data: adsWithSalonNames,
-                total: adsWithSalonNames.length
+                data: paginatedAds,
+                filter: {
+                    type: normalizedType,
+                },
+                pagination: {
+                    page: normalizedPage,
+                    limit: normalizedLimit,
+                    totalItems,
+                    totalPages,
+                    hasPrevious: normalizedPage > 1,
+                    hasNext: normalizedPage < totalPages,
+                },
             };
         } catch (error) {
             console.error('Error getting all ads:', error);
