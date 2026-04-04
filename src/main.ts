@@ -19,6 +19,7 @@ async function bootstrap() {
       'https://salonstore.lk',
       'https://store.salonstore.lk',
       'http://localhost:3000',
+      'https://salonstore-lanka.netlify.app',
     ],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
