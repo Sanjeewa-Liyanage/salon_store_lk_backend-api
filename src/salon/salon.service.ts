@@ -8,6 +8,7 @@ import { UserService } from '../user/user.service';
 import { ResendMailService } from '../common/mail/resendmail.service';
 import { UserRole } from '../user/enum/userrole.enum';
 import { NotificationsGateway } from '../notifications/notifications.gateway';
+import { title } from 'process';
 
 @Injectable()
 export class SalonService {
@@ -387,8 +388,14 @@ export class SalonService {
                         new Date().toLocaleDateString(),
                     
                 );
+                this.notificationsGateway.sendToSalonOwner(salonData.ownerId, 'salon-suspended', {
+                    title: 'Salon Suspended',
+                    message: `Your salon "${salonName}" has been suspended due to the following reason: ${reason}. Please contact support for more information.`,
+                    type: 'suspension',
+                });
             }
         }
+
         return { message: 'Salon suspended successfully', salonId: id };
     }
 
@@ -416,7 +423,14 @@ export class SalonService {
                     ownerName,
                     salonName
                 );
+                this.notificationsGateway.sendToSalonOwner(salonData.ownerId, 'salon-reactivation', {
+                    title: 'Salon Reactivated',
+                    message: `Your salon "${salonData.salonName || 'Unknown'}" has been reactivated and is now active.`,
+                    type: 'salon-reactivation',
+                });
             }
+
+                
         }
 
         return { message: 'Salon unsuspended successfully', salonId: id };
@@ -448,6 +462,11 @@ export class SalonService {
                     salonName,
                     reason
                 );
+                this.notificationsGateway.sendToSalonOwner(salonData.ownerId, 'salon-rejected', {
+                    title: 'Salon Rejected',
+                    message: `Your salon "${salonData.salonName || 'Unknown'}" was rejected. Reason: ${reason}`,
+                    type: 'salon-rejected'
+                });
             }
         }
 
@@ -474,10 +493,19 @@ export class SalonService {
         if (!salonDoc.exists) {
             throw new NotFoundException('Salon not found');
         }
+            const salonData = salonDoc.data();
         await collection.doc(id).update({
             status: SalonStatus.ACTIVE,
             updatedAt: new Date()
         })
+        
+        if (salonData?.ownerId) {
+            this.notificationsGateway.sendToSalonOwner(salonData.ownerId, 'salon-accepted', {
+                title: 'Salon Approved',
+                message: `Good news! Your salon "${salonData.salonName || 'Unknown'}" has been approved and is now active.`,
+                type: 'salon-accepted'
+            });
+        }
         return { message: 'Salon activated successfully'};
     }
 

@@ -145,6 +145,17 @@ export class AdsService {
             approvalDate: firestore.FieldValue.serverTimestamp(),
             
         });
+        // send notification to salon owner
+        if (ad?.salonId) {
+            const salon = await this.salonService.getSalonById(ad.salonId);
+            if (salon?.ownerId) {
+                this.notificationsGateway.sendToSalonOwner(salon.ownerId, 'ad-approved', {
+                    title: 'Ad Approved',
+                    message: `Your ad "${ad?.title || 'Unknown'}" has been approved and is now live.`,
+                    type: 'ad-approved'
+                });
+            }
+        }
         return {
             message: 'Ad approved successfully',
             adId: id
@@ -158,10 +169,22 @@ export class AdsService {
         if (!doc.exists) {
             throw new BadRequestException(`Ad with ID ${id} not found`);
         }
+        const ad = doc.data();
+
         await docRef.update({
             status: AdStatus.REJECTED,
             rejectionReason: reason
         });
+        if (ad?.salonId) {
+            const salon = await this.salonService.getSalonById(ad.salonId);
+            if (salon?.ownerId) {
+                this.notificationsGateway.sendToSalonOwner(salon.ownerId, 'ad-rejected', {
+                    title: 'Ad Rejected',
+                    message: `Your ad "${ad?.title || 'Unknown'}" was rejected. Reason: ${reason}`,
+                    type: 'ad-rejected'
+                });
+            }
+        }
         return {
             message: 'Ad rejected successfully',
             adId: id
