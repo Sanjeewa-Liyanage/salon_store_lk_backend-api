@@ -124,7 +124,22 @@ export class PaymentService {
         });
 
         await this.updateAdPaymentStatus(payment.referenceId, PaymentStatus.VERIFIED);
-
+            try {
+                const adDoc = await this.getAdCollection().doc(payment.referenceId).get();
+                const adData = adDoc.data();
+                if (adData?.salonId) {
+                    const salon = await this.salonService.getSalonById(adData.salonId);
+                    if (salon?.ownerId) {
+                        this.notificationsGateway.sendToSalonOwner(salon.ownerId, 'payment-verified', {
+                            title: 'Payment Verified',
+                            message: `Your payment for ad "${adData.title || 'Unknown'}" has been successfully verified.`,
+                            type: 'payment-verified'
+                        });
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to send payment verification notification', error);
+            }
         return { message: 'Payment verified successfully', paymentId };
     }
 
@@ -153,7 +168,24 @@ export class PaymentService {
             updatedAt: firestore.FieldValue.serverTimestamp(),
         });
 
+
         await this.updateAdPaymentStatus(payment.referenceId, PaymentStatus.REJECTED);
+            try {
+                const adDoc = await this.getAdCollection().doc(payment.referenceId).get();
+                const adData = adDoc.data();
+                if (adData?.salonId) {
+                    const salon = await this.salonService.getSalonById(adData.salonId);
+                    if (salon?.ownerId) {
+                        this.notificationsGateway.sendToSalonOwner(salon.ownerId, 'payment-rejected', {
+                            title: 'Payment Rejected',
+                            message: `Your payment for ad "${adData.title || 'Unknown'}" was rejected. Reason: ${normalizedReason}`,
+                            type: 'payment-rejected'
+                        });
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to send payment rejection notification', error);
+            }
 
         return { message: 'Payment rejected', paymentId };
     }
