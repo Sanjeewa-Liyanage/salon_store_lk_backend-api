@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
 import { FirebaseService } from '../firebase/firebase.service';
 import { adConverter } from './helpers/ads.converter';
 import { AdsCreateDto } from './dto/adscreate.dto';
@@ -8,9 +8,9 @@ import { SalonService } from '../salon/salon.service';
 import { Ad } from './schema/ads.schema';
 import { AdStatus } from './enum/adstatus.enum';
 import { PaymentStatus } from './enum/paymentstat.enum';
-import { start } from 'repl';
 import { PaymentService } from '../payment/payment.service';
 import { NotificationsGateway } from '../notifications/notifications.gateway';
+import { UserRole } from '../user/enum/userrole.enum';
 
 @Injectable()
 export class AdsService {
@@ -60,6 +60,10 @@ export class AdsService {
         };
     }
 
+    private isAdVisible(ad?: Partial<Ad>): boolean {
+        return ad?.isDeleted !== true;
+    }
+
     async createAd(dto : AdsCreateDto, userId: string){
         const collection = this.getCollection();
 
@@ -78,6 +82,7 @@ export class AdsService {
             updatedAt: firestore.FieldValue.serverTimestamp(),
             status: AdStatus.PENDING_APPROVAL,
             paymentStatus: PaymentStatus.NOTVERIFIED,
+            isDeleted: false,
             startDate: undefined,
             endDate: undefined,
             approvalDate: undefined,
@@ -191,6 +196,45 @@ export class AdsService {
         };
     }
 
+    async deleteAd(id: string, userId: string, userRole: UserRole): Promise<any> {
+        const collection = this.getCollection();
+        const docRef = collection.doc(id);
+        const doc = await docRef.get();
+
+        if (!doc.exists) {
+            throw new BadRequestException(`Ad with ID ${id} not found`);
+        }
+
+        const ad = doc.data() as Ad;
+
+        if (ad?.isDeleted) {
+            throw new BadRequestException(`Ad with ID ${id} is already deleted`);
+        }
+
+        if (userRole === UserRole.SALON_OWNER) {
+            if (!ad?.salonId) {
+                throw new BadRequestException('Ad does not have a valid salon association');
+            }
+
+            const isOwner = await this.salonService.checkOwnership(ad.salonId, userId);
+            if (!isOwner) {
+                throw new ForbiddenException('You are not authorized to delete this ad');
+            }
+        } else if (userRole !== UserRole.ADMIN) {
+            throw new ForbiddenException('Only admin or salon owner can delete this ad');
+        }
+
+        await docRef.update({
+            isDeleted: true,
+            updatedAt: firestore.FieldValue.serverTimestamp(),
+        });
+
+        return {
+            message: 'Ad deleted successfully',
+            adId: id,
+        };
+    }
+
     async getAdById(id: string): Promise<Ad>{
         const collection = this.getCollection();
         const docRef = collection.doc(id);
@@ -198,7 +242,11 @@ export class AdsService {
         if (!doc.exists) {
             throw new BadRequestException(`Ad with ID ${id} not found`);
         }
-        return doc.data() as Ad;
+        const ad = doc.data() as Ad;
+        if (!this.isAdVisible(ad)) {
+            throw new BadRequestException(`Ad with ID ${id} not found`);
+        }
+        return ad;
 
     }
 
@@ -231,7 +279,22 @@ export class AdsService {
         const ads = adsSnapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
-        }));
+        })).filter((ad) => this.isAdVisible(ad));
+
+        if (ads.length === 0) {
+            return {
+                data: [],
+                pagination: {
+                    currentPage: page,
+                    limit,
+                    totalItems: 0,
+                    totalPages: 0,
+                    hasNextPage: false,
+                    hasPreviousPage: false,
+                }
+            };
+        }
+
         const uniquePlanIds = [...new Set(ads.map(ad => ad.planId).filter(Boolean))];
 
         const planMap = new Map<string, number>();
@@ -289,7 +352,11 @@ export class AdsService {
         const ads = adsSnapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
-        }));
+        })).filter((ad) => this.isAdVisible(ad));
+
+        if (ads.length === 0) {
+            return [];
+        }
 
         const salonNameMap = await this.getSalonNameMap([salonId]);
         return ads.map(ad => this.mapAdWithSalonName(ad, salonNameMap));
@@ -352,7 +419,24 @@ export class AdsService {
             const ads = adsSnapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()
-            }));
+            })).filter((ad) => this.isAdVisible(ad));
+
+            if (ads.length === 0) {
+                return {
+                    data: [],
+                    filter: {
+                        type: normalizedType,
+                    },
+                    pagination: {
+                        page: normalizedPage,
+                        limit: normalizedLimit,
+                        totalItems: 0,
+                        totalPages: 0,
+                        hasPrevious: false,
+                        hasNext: false,
+                    }
+                };
+            }
 
             const salonNameMap = await this.getSalonNameMap(
                 ads
@@ -437,7 +521,22 @@ export class AdsService {
             const ads = adsSnapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()
-            }));
+            })).filter((ad) => this.isAdVisible(ad));
+
+            if (ads.length === 0) {
+                return {
+                    data: [],
+                    status: status,
+                    pagination: page !== undefined && limit !== undefined ? {
+                        currentPage: page,
+                        limit: limit,
+                        totalItems: 0,
+                        totalPages: 0,
+                        hasNextPage: false,
+                        hasPreviousPage: false
+                    } : undefined
+                };
+            }
 
             const salonNameMap = await this.getSalonNameMap(
                 ads
@@ -500,6 +599,10 @@ export class AdsService {
 
         const ad = doc.data() as Ad;
 
+        if (!this.isAdVisible(ad)) {
+            throw new BadRequestException(`Ad with ID ${id} not found`);
+        }
+
         if (ad.status !== AdStatus.APPROVED) {
             throw new BadRequestException(`Ad with ID ${id} is not approved`);
         }
@@ -517,6 +620,7 @@ export class AdsService {
             salonName: ad.salonId ? salonNameMap.get(ad.salonId) ?? 'Unknown Salon' : 'Unknown Salon',
         };
     }
+    
     
 }
 

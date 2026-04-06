@@ -9,6 +9,7 @@ import { ResendMailService } from '../common/mail/resendmail.service';
 import { UserRole } from '../user/enum/userrole.enum';
 import { NotificationsGateway } from '../notifications/notifications.gateway';
 import { title } from 'process';
+import { Salon } from './schemas/salon.schema';
 
 @Injectable()
 export class SalonService {
@@ -53,6 +54,10 @@ export class SalonService {
         }
 
         return value;
+    }
+
+    private isSalonVisible(salon?: Partial<Salon>): boolean {
+        return salon?.isDeleted !== true;
     }
 
     private async generateSalonCode(): Promise<string>{
@@ -105,6 +110,7 @@ export class SalonService {
             contactInfo,
             isActive: dto.isActive !== undefined ? dto.isActive : true,
             status: SalonStatus.PENDING_VERIFICATION,
+            isDeleted: false,
             createdAt: new Date(),
             ownerId: ownerId,
         };
@@ -154,7 +160,9 @@ export class SalonService {
     async getbyOwner(ownerId: string) {
         const collection = this.getSalonsCollection();
         const snapshot = await collection.where('ownerId', '==', ownerId).get();
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        return snapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data() }))
+            .filter((salon) => this.isSalonVisible(salon));
     }
 
     async getSalonById(id: string) {
@@ -166,6 +174,9 @@ export class SalonService {
         }
         
         const salonData = salonDoc.data();
+        if (!this.isSalonVisible(salonData as Salon)) {
+            throw new NotFoundException('Salon not found');
+        }
         let ownerName = 'Unknown';
         
         if (salonData?.ownerId) {
@@ -223,17 +234,28 @@ export class SalonService {
 
 
 
-    async deleteSalon(id: string, userId: string):Promise<any> {
+    async deleteSalon(id: string, userId: string, userRole: UserRole):Promise<any> {
         const collection = this.getSalonsCollection();
         const salonDoc = await collection.doc(id).get();
         if (!salonDoc.exists) {
             throw new NotFoundException('Salon not found');
         }
-        const salonData = salonDoc.data();
-        if (salonData?.ownerId !== userId) {
+        const salon = salonDoc.data() as Salon;
+
+        if(salon.isDeleted === true){
+            throw new BadRequestException('Salon is already deleted');
+        }
+
+        if(userRole === UserRole.SALON_OWNER){
+            if(salon.ownerId !== userId){
+                throw new UnauthorizedException('You are not authorized to delete this salon');
+
+            }
+
+        }else if(userRole !== UserRole.ADMIN){
             throw new UnauthorizedException('You are not authorized to delete this salon');
         }
-        await collection.doc(id).delete();
+        await collection.doc(id).update({ isDeleted: true, updatedAt: new Date() });
         return { message: 'Salon deleted successfully' };
 
     }
@@ -270,27 +292,27 @@ export class SalonService {
             query = query.where('status', '==', filterStatus);
         }
 
-        const totalSnapshot = await query.get();
-        const totalItems = totalSnapshot.size;
-        const totalPages = totalItems === 0 ? 0 : Math.ceil(totalItems / limit);
-        const offset = (page - 1) * limit;
-
         const snapshot = await query
             .orderBy('createdAt', 'desc')
-            .offset(offset)
-            .limit(limit)
             .get();
 
-        const hasNext = page < totalPages;
-        const hasPrevious = page > 1;
-        const salonDocs: Array<Record<string, any>> = snapshot.docs.map((doc) => ({
+        const visibleSalonDocs: Array<Record<string, any>> = snapshot.docs
+            .map((doc) => ({
             id: doc.id,
             ...(doc.data() as Record<string, any>),
-        }));
+            }))
+            .filter((salon) => this.isSalonVisible(salon));
+
+        const totalItems = visibleSalonDocs.length;
+        const totalPages = totalItems === 0 ? 0 : Math.ceil(totalItems / limit);
+        const offset = (page - 1) * limit;
+        const hasNext = page < totalPages;
+        const hasPrevious = page > 1;
+        const paginatedSalonDocs = visibleSalonDocs.slice(offset, offset + limit);
 
         // Fetch owner names for each salon
         const salons = await Promise.all(
-            salonDocs.map(async (salon) => {
+            paginatedSalonDocs.map(async (salon) => {
                 let ownerName = 'Unknown';
                 if (salon.ownerId) {
                     const owner = await this.userService.findOne(salon.ownerId);
@@ -327,7 +349,9 @@ export class SalonService {
     async getSalonsByOwner(ownerId: string) {
         const collection = this.getSalonsCollection();
         const snapshot = await collection.where('ownerId', '==', ownerId).get();
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        return snapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data() }))
+            .filter((salon) => this.isSalonVisible(salon));
     }
 
     async checkOwnership(id: string, userId: string): Promise<boolean> {
@@ -336,6 +360,9 @@ export class SalonService {
             return false;
         }
         const salonData = snapshot.data();
+        if (!this.isSalonVisible(salonData as Salon)) {
+            return false;
+        }
         return salonData?.ownerId === userId;
     }
 
@@ -348,7 +375,11 @@ export class SalonService {
             throw new NotFoundException('Salon not found');
         }
 
-        const salon = snapshot.data();
+        const salon = snapshot.data() as Salon;
+
+        if (!this.isSalonVisible(salon)) {
+            throw new NotFoundException('Salon not found');
+        }
 
         if (salon?.ownerId !== userId) {
             throw new UnauthorizedException('You are not authorized to create an ad for this salon');
@@ -527,8 +558,8 @@ export class SalonService {
 
         const adCountBySalon = new Map<string, number>();
         adsSnapshot.docs.forEach((doc) => {
-            const adData = doc.data() as { salonId?: string };
-            if (!adData.salonId) {
+            const adData = doc.data() as { salonId?: string; isDeleted?: boolean };
+            if (!adData.salonId || adData.isDeleted === true) {
                 return;
             }
             adCountBySalon.set(adData.salonId, (adCountBySalon.get(adData.salonId) ?? 0) + 1);
@@ -544,6 +575,7 @@ export class SalonService {
                     adCount,
                 };
             })
+            .filter((salon) => this.isSalonVisible(salon))
             .sort((a, b) => b.adCount - a.adCount);
 
         const totalItems = rankedSalons.length;

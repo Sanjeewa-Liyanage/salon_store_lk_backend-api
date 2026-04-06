@@ -12,7 +12,7 @@ export class Plan{
     updatedAt?: Date;
     duration?:number;
     priority?: number;
-
+    isDeleted?: boolean = false;
     constructor(partial: Partial<Plan>) {
         this.priority = 3;
         this.duration = 30;69
