@@ -48,8 +48,8 @@ export class PlanController {
     @Delete('delete/:id')
     @UseGuards(AuthGuard('jwt'))
     @Roles(UserRole.ADMIN)
-    async deletePlan(@Param('id') id: string) {
-        return this.planService.deletePlan(id);
+    async deletePlan(@Param('id') id: string, @Req() req: any) {
+        return this.planService.deletePlan(id, req.user.role);
     }
 
     @Get(':id')

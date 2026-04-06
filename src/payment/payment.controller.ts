@@ -1,5 +1,5 @@
 // payment/payment.controller.ts
-import { Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { PaymentService } from './payment.service';
@@ -50,5 +50,13 @@ export class PaymentController {
     @Roles(UserRole.ADMIN)
     async rejectPayment(@Param('id') id: string, @Body() dto: RejectPaymentDto) {
         return this.paymentService.rejectPayment(id, dto.reason);
+    }
+
+    // admin only: soft delete payment
+    @Delete(':id')
+    @UseGuards(AuthGuard('jwt'))
+    @Roles(UserRole.ADMIN)
+    async deletePayment(@Param('id') id: string, @Req() req: any) {
+        return this.paymentService.deletePayment(id, req.user.role);
     }
 }
