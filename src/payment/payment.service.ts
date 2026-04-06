@@ -1,5 +1,5 @@
 // payment/payment.service.ts
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Inject, Injectable } from '@nestjs/common';
 import { FirebaseService } from '../firebase/firebase.service';
 import { paymentConverter } from './helpers/payment.conveter';
 import { CreatePaymentDto } from './dto/create-payment.dto';
@@ -8,6 +8,7 @@ import { PaymentStatus } from './enum/paymentstatus.enum';
 import { firestore } from 'firebase-admin';
 import { SalonService } from '../salon/salon.service';
 import { NotificationsGateway } from '../notifications/notifications.gateway';
+import { UserRole } from '../user/enum/userrole.enum';
 
 @Injectable()
 export class PaymentService {
@@ -29,6 +30,10 @@ export class PaymentService {
         return this.firebaseService.getFirestore().collection('ads');
     }
 
+    private isPaymentVisible(payment?: Partial<Payment>): boolean {
+        return payment?.isDeleted !== true;
+    }
+
     // ─── owner submits slip ───────────────────────────────────────────────────
 
     async submitPayment(dto: CreatePaymentDto, userId: string): Promise<any> {
@@ -47,11 +52,12 @@ export class PaymentService {
         // one payment per ad — reject if one already exists and isn't rejected
         const existing = await this.getCollection()
             .where('referenceId', '==', dto.referenceId)
-            .limit(1)
             .get();
 
-        if (!existing.empty) {
-            const existingPayment = existing.docs[0].data();
+        const existingPaymentDoc = existing.docs.find((doc) => this.isPaymentVisible(doc.data()));
+
+        if (existingPaymentDoc) {
+            const existingPayment = existingPaymentDoc.data();
             if (existingPayment.status !== PaymentStatus.REJECTED) {
                 throw new BadRequestException(
                     `A payment for this ad already exists with status: ${existingPayment.status}`
@@ -59,13 +65,14 @@ export class PaymentService {
             }
             const newTransactionId = this.generateTransactionId();
             // previous was rejected — update it instead of creating a new one
-            const docRef = existing.docs[0].ref;
+            const docRef = existingPaymentDoc.ref;
             await docRef.update({
                 paymentProofUrl: dto.paymentProofUrl,
                 transactionId: newTransactionId,
                 paymentMethod: dto.paymentMethod,
                 status: PaymentStatus.PENDING_VERIFICATION,
                 rejectionReason: '',
+                isDeleted: false,
                 updatedAt: firestore.FieldValue.serverTimestamp(),
             });
             await this.updateAdPaymentStatus(adId, PaymentStatus.PENDING_VERIFICATION);
@@ -81,6 +88,7 @@ export class PaymentService {
             status: PaymentStatus.PENDING_VERIFICATION,
             rejectionReason: '',
             verifiedAt: null,
+            isDeleted: false,
             createdAt: firestore.FieldValue.serverTimestamp(),
             updatedAt: firestore.FieldValue.serverTimestamp(),
         };
@@ -111,6 +119,9 @@ export class PaymentService {
         }
 
         const payment = doc.data();
+        if (!this.isPaymentVisible(payment)) {
+            throw new BadRequestException(`Payment with ID ${paymentId} not found`);
+        }
         if (payment?.status !== PaymentStatus.PENDING_VERIFICATION) {
             throw new BadRequestException(
                 `Only PENDING_VERIFICATION payments can be verified (current: ${payment?.status})`
@@ -156,6 +167,9 @@ export class PaymentService {
         }
 
         const payment = doc.data();
+        if (!this.isPaymentVisible(payment)) {
+            throw new BadRequestException(`Payment with ID ${paymentId} not found`);
+        }
         if (payment?.status !== PaymentStatus.PENDING_VERIFICATION) {
             throw new BadRequestException(
                 `Only PENDING_VERIFICATION payments can be rejected (current: ${payment?.status})`
@@ -192,16 +206,52 @@ export class PaymentService {
 
     // ─── queries ──────────────────────────────────────────────────────────────
 
+    async deletePayment(paymentId: string, userRole: UserRole): Promise<any> {
+        if (userRole !== UserRole.ADMIN) {
+            throw new ForbiddenException('Only admins can delete payments');
+        }
+
+        const docRef = this.getCollection().doc(paymentId);
+        const doc = await docRef.get();
+
+        if (!doc.exists) {
+            throw new BadRequestException(`Payment with ID ${paymentId} not found`);
+        }
+
+        const payment = doc.data();
+        if (!this.isPaymentVisible(payment)) {
+            throw new BadRequestException(`Payment with ID ${paymentId} is already deleted`);
+        }
+
+        await docRef.update({
+            isDeleted: true,
+            updatedAt: firestore.FieldValue.serverTimestamp(),
+        });
+
+        return { message: 'Payment deleted successfully', paymentId };
+    }
+
     async getPaymentByAdId(adId: string): Promise<Payment> {
-        const snapshot = await this.getCollection()
-            .where('adId', '==', adId)
-            .limit(1)
+        let snapshot = await this.getCollection()
+            .where('referenceId', '==', adId)
+            .orderBy('createdAt', 'desc')
             .get();
 
+        // Backward compatibility for any legacy records that used adId.
         if (snapshot.empty) {
+            snapshot = await this.getCollection()
+                .where('adId', '==', adId)
+                .orderBy('createdAt', 'desc')
+                .get();
+        }
+
+        const paymentDoc = snapshot.docs.find((doc) => this.isPaymentVisible(doc.data()));
+
+        if (!paymentDoc) {
             throw new BadRequestException(`No payment found for ad ID ${adId}`);
         }
-        return snapshot.docs[0].data() as Payment;
+
+        return paymentDoc.data() as Payment;
     }
 
     async getPendingPayments(): Promise<Payment[]> {
@@ -210,7 +260,9 @@ export class PaymentService {
             .orderBy('createdAt', 'desc')
             .get();
 
-        return snapshot.docs.map(doc => doc.data() as Payment);
+        return snapshot.docs
+            .map(doc => doc.data() as Payment)
+            .filter((payment) => this.isPaymentVisible(payment));
     }
 
     // ─── internal helper ──────────────────────────────────────────────────────
@@ -226,7 +278,9 @@ export class PaymentService {
             .where('referenceId', '==', referenceId)
             .orderBy('createdAt', 'desc')
             .get();
-        return snapshot.docs.map(doc => doc.data() as Payment);
+        return snapshot.docs
+            .map(doc => doc.data() as Payment)
+            .filter((payment) => this.isPaymentVisible(payment));
     }
 
 }

@@ -1,9 +1,11 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { FirebaseService } from '../firebase/firebase.service';
 import { planConverter } from './helpers/plan.conver';
 import { PlanCreateDto } from './dto/plancreate.dto';
 import { PlanUpdateDto } from './dto/plan-update.dto';
 import { firestore } from 'firebase-admin';
+import { Plan } from './schema/plan.schema';
+import { UserRole } from '../user/enum/userrole.enum';
 
 @Injectable()
 export class PlanService {
@@ -13,6 +15,10 @@ export class PlanService {
         return this.firebaseService.getFirestore()
             .collection('plans').withConverter(planConverter);
             
+    }
+
+    private isPlanVisible(plan?: Partial<Plan>): boolean {
+        return plan?.isDeleted !== true;
     }
 
     private async generatePlanCode(): Promise<string> {
@@ -51,6 +57,7 @@ export class PlanService {
             features: dto.features,
             duration: dto.duration,
             priority: dto.priority,
+            isDeleted: false,
             createdAt: firestore.FieldValue.serverTimestamp(),
             updatedAt: firestore.FieldValue.serverTimestamp(),
         };
@@ -67,18 +74,30 @@ export class PlanService {
         const collection = this.getPlanCollection();
         const snapshot = await collection.get();
         
-        return snapshot.docs.map(doc => ({
-            id: doc.id,
-            planName: doc.data().planName
-        }));
+        return snapshot.docs
+            .map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }))
+            .filter((plan) => this.isPlanVisible(plan))
+            .map((plan) => ({
+                id: plan.id,
+                planName: plan.planName,
+            }));
     }
 
     async getAllPlans(page: number = 1, limit: number = 10) {
         const collection = this.getPlanCollection();
         
-        // Get total count
         const totalSnapshot = await collection.get();
-        const totalCount = totalSnapshot.size;
+        const visiblePlans = totalSnapshot.docs
+            .map((doc) => ({
+                id: doc.id,
+                ...doc.data(),
+            }))
+            .filter((plan) => this.isPlanVisible(plan));
+
+        const totalCount = visiblePlans.length;
         
         if (totalCount === 0) {
             return {
@@ -99,12 +118,10 @@ export class PlanService {
         const offset = (page - 1) * limit;
         
         // Get paginated results
-        const allDocs = totalSnapshot.docs;
-        const paginatedDocs = allDocs.slice(offset, offset + limit);
+        const paginatedPlans = visiblePlans.slice(offset, offset + limit);
         
-        const data = paginatedDocs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
+        const data = paginatedPlans.map((plan) => ({
+            ...plan,
         }));
         
         return {
@@ -126,6 +143,11 @@ export class PlanService {
         
         const doc = await docRef.get();
         if (!doc.exists) {
+            throw new NotFoundException(`Plan with ID ${id} not found`);
+        }
+
+        const existingPlan = doc.data() as Plan;
+        if (!this.isPlanVisible(existingPlan)) {
             throw new NotFoundException(`Plan with ID ${id} not found`);
         }
         
@@ -150,7 +172,11 @@ export class PlanService {
         };
     }
 
-    async deletePlan(id: string) {
+    async deletePlan(id: string, userRole: UserRole) {
+        if (userRole !== UserRole.ADMIN) {
+            throw new ForbiddenException('Only admins can delete plans');
+        }
+
         const collection = this.getPlanCollection();
         const docRef = collection.doc(id);
         
@@ -158,8 +184,16 @@ export class PlanService {
         if (!doc.exists) {
             throw new NotFoundException(`Plan with ID ${id} not found`);
         }
+
+        const plan = doc.data() as Plan;
+        if (!this.isPlanVisible(plan)) {
+            throw new NotFoundException(`Plan with ID ${id} not found`);
+        }
         
-        await docRef.delete();
+        await docRef.update({
+            isDeleted: true,
+            updatedAt: firestore.FieldValue.serverTimestamp(),
+        });
         
         return {
             message: `Plan with ID ${id} has been successfully deleted`,
@@ -173,14 +207,19 @@ export class PlanService {
         if (!doc.exists) {
             throw new NotFoundException(`Plan with ID ${id} not found`);
         }
+        const plan = doc.data() as Plan;
+        if (!this.isPlanVisible(plan)) {
+            throw new NotFoundException(`Plan with ID ${id} not found`);
+        }
         return {
             id: doc.id,
-            ...doc.data()
+            ...plan
         };
     }
     
     public async checkActive (id:string): Promise<boolean> {
         const doc = await this.getPlanCollection().doc(id).get();
-        return doc.exists && doc.data()?.state === 'ACTIVE';
+        const plan = doc.data() as Plan | undefined;
+        return doc.exists && this.isPlanVisible(plan) && plan?.state === 'ACTIVE';
     }
 }
