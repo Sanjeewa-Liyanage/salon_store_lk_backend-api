@@ -29,7 +29,8 @@ export class SalonSchema{
     openingTime?: Date;
     closingTime?: Date;
     rejectionReason?: string;
-    suspensionReason?: string;
+    suspensionReason?: string;4
+    isDeleted?: boolean = false;    
     socialMediaLinks?: {
         facebook?: string;
         instagram?: string;
@@ -42,6 +43,10 @@ export class SalonSchema{
 
     constructor(partial: Partial<SalonSchema>) {
         Object.assign(this, partial);
+        this.status = partial.status ?? SalonStatus.PENDING_VERIFICATION;
+        this.rejectionReason = partial.rejectionReason ?? '';
+        this.suspensionReason = partial.suspensionReason ?? '';
+        this.isDeleted = partial.isDeleted ?? false;
     }
     
 }

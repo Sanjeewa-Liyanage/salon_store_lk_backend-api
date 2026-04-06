@@ -18,6 +18,7 @@ export class Ad{
     approvalDate?: Date;
     rejectionReason?: string;
     transactionId?: string;
+    isDeleted?: boolean = false;
     
     //payment details
 
@@ -29,11 +30,12 @@ export class Ad{
     
 
     constructor(partial: Partial<Ad>) {
-        this.status = AdStatus.PENDING_APPROVAL
-        this.paymentStatus = PaymentStatus.NOTVERIFIED;
-        this.rejectionReason = '';
-        this.approvalDate = undefined;
         Object.assign(this, partial);
+        this.status = partial.status ?? AdStatus.PENDING_APPROVAL;
+        this.paymentStatus = partial.paymentStatus ?? PaymentStatus.NOTVERIFIED;
+        this.rejectionReason = partial.rejectionReason ?? '';
+        this.approvalDate = partial.approvalDate;
+        this.isDeleted = partial.isDeleted ?? false;
     }
 
 

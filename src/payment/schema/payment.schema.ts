@@ -12,6 +12,7 @@ export class Payment {
     verifiedAt?: Date;
     createdAt?: Date;
     updatedAt?: Date;
+    isDeleted?: boolean = false;
 
     constructor(partial: Partial<Payment>) {
         this.status = PaymentStatus.PENDING_VERIFICATION;

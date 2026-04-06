@@ -1,4 +1,4 @@
-import { Body, Controller, Patch, Post, Req, UseGuards, Get, Param, BadRequestException, Query } from '@nestjs/common';
+import { Body, Controller, Patch, Post, Req, UseGuards, Get, Param, BadRequestException, Query, Delete } from '@nestjs/common';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { AdsService } from './ads.service';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -38,6 +38,13 @@ export class AdsController {
     @Roles(UserRole.ADMIN)
     async rejectAd(@Req()req: any, @Body('reason') reason: string){
         return this.adsService.rejectAd(req.params.id, reason); 
+    }
+
+    @Delete(':id')
+    @UseGuards(AuthGuard('jwt'))
+    @Roles(UserRole.ADMIN, UserRole.SALON_OWNER)
+    async deleteAd(@Param('id') id: string, @Req() req: any) {
+        return this.adsService.deleteAd(id, req.user.sub, req.user.role);
     }
     
     @Get('all-priority')

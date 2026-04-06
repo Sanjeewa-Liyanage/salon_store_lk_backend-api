@@ -1,4 +1,4 @@
-import { Body, Controller, Post, UseGuards, Req, Param, Patch, Get, Query, DefaultValuePipe, ParseIntPipe } from '@nestjs/common';
+import { Body, Controller, Post, UseGuards, Req, Param, Patch, Get, Query, DefaultValuePipe, ParseIntPipe, Delete } from '@nestjs/common';
 import { SalonService } from './salon.service';
 import { SalonCreateDto } from './dto/salon-create.dto';
 import { SalonUpdateDto } from './dto/salon-update.dto';
@@ -89,12 +89,13 @@ export class SalonController {
         return this.salonService.getSalonById(id);
     }
 
-    @Post('delete/:id')
+    @Delete('delete/:id')
     @UseGuards(AuthGuard('jwt'))
+    @Roles(UserRole.ADMIN, UserRole.SALON_OWNER)
     @ApiOperation({ summary: 'Delete an existing salon' })
     @ApiResponse({ status: 200, description: 'The salon has been successfully deleted.'})
     async deleteSalon(@Param('id') id: string, @Req() req: any) {
-        return this.salonService.deleteSalon(id, req.user.sub);
+        return this.salonService.deleteSalon(id, req.user.sub, req.user.role);
     }
 
     @Patch('suspend/:id')

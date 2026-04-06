@@ -20,6 +20,7 @@ export class UserSchema {
     otp?: string;
     otpExpires?: Date;
     profilePictureUrl?: string;
+    isDeleted?: boolean = false;
 
     // optional 
     businessLicense?: string;
