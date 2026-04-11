@@ -3,7 +3,7 @@ import { PaymentMethod } from "../enum/paymentmethod.enum";
 import { PaymentStatus } from "../enum/paymentstat.enum";
 
 
-export class Ad{
+export class Ad {
     id?: string;
     title?: string;
     description?: string;
@@ -19,15 +19,21 @@ export class Ad{
     rejectionReason?: string;
     transactionId?: string;
     isDeleted?: boolean = false;
-    
+
     //payment details
 
     paymentStatus?: PaymentStatus;
-   
 
-    
+    planDetails?: {
+        planName?: string;
+        planCode?: string;
+        features?: string[];
+        imageCount?: number;
+        videoCount?: number;
+    }
 
-    
+
+
 
     constructor(partial: Partial<Ad>) {
         Object.assign(this, partial);
