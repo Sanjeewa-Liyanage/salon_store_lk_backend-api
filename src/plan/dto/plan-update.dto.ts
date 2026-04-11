@@ -29,4 +29,12 @@ export class PlanUpdateDto {
     @IsNumber()
     @IsOptional()
     priority?: number; // lower number means higher priority
+
+    @IsNumber()
+    @IsOptional()
+    imageCount?: number;
+
+    @IsNumber()
+    @IsOptional()
+    videoCount?: number;
 }

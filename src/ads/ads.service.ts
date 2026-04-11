@@ -67,12 +67,8 @@ export class AdsService {
     async createAd(dto : AdsCreateDto, userId: string){
         const collection = this.getCollection();
 
-        //check plan is active or not 
-        const isPlanActive = await this.planService.checkActive(dto.planId);
-        
-        if (!isPlanActive) {
-            throw new BadRequestException(`Plan is not active or does not exist`);
-        }
+        //check plan is active and get plan details
+        const planDetails = await this.planService.checkActiveAndGetDetails(dto.planId);
         //check salon is ready to post ad or not
         await this.salonService.validateSalonForAd(dto.salonId, userId);
 
@@ -87,9 +83,7 @@ export class AdsService {
             endDate: undefined,
             approvalDate: undefined,
             rejectionReason: '',
-
-            
-            
+            planDetails,
         }
         
         try{
