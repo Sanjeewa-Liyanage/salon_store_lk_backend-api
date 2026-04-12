@@ -15,13 +15,13 @@ import { UserRole } from '../user/enum/userrole.enum';
 @Injectable()
 export class AdsService {
     constructor(private firebaseService: FirebaseService,
-                private planService: PlanService,
-                private salonService: SalonService,
-                private paymentService: PaymentService,
-                private notificationsGateway: NotificationsGateway
-                ){}
+        private planService: PlanService,
+        private salonService: SalonService,
+        private paymentService: PaymentService,
+        private notificationsGateway: NotificationsGateway
+    ) { }
 
-    private getCollection(){
+    private getCollection() {
         return this.firebaseService.getFirestore().
             collection('ads').
             withConverter(adConverter);
@@ -64,7 +64,7 @@ export class AdsService {
         return ad?.isDeleted !== true;
     }
 
-    async createAd(dto : AdsCreateDto, userId: string){
+    async createAd(dto: AdsCreateDto, userId: string) {
         const collection = this.getCollection();
 
         //check plan is active and get plan details
@@ -85,8 +85,8 @@ export class AdsService {
             rejectionReason: '',
             planDetails,
         }
-        
-        try{
+
+        try {
             const docRef = await collection.add(adData);
             // send notification to admin
             const salonName = await this.salonService.getSalonById(dto.salonId);
@@ -96,7 +96,7 @@ export class AdsService {
                 message: `New ad submitted for salon ${salonName.salonName} with title ${dto.title}` // you can customize this message as needed
             })
 
-            
+
             return {
                 message: 'Ad created successfully',
                 adId: docRef.id,
@@ -105,14 +105,14 @@ export class AdsService {
                     ...dto
                 }
             }
-        }catch(error){
+        } catch (error) {
             console.error('Error creating ad:', error);
             throw new BadRequestException('Failed to create ad');
         }
     }
 
     //! bug fix : need to fix REJECTED ad can be approved 
-    async approveAd(id: string):Promise<any>{
+    async approveAd(id: string): Promise<any> {
         const collection = this.getCollection();
         const docRef = collection.doc(id);
         const doc = await docRef.get();
@@ -120,18 +120,18 @@ export class AdsService {
             throw new BadRequestException(`Ad with ID ${id} not found`);
         }
         const ad = doc.data();
-        if(ad?.status !== AdStatus.PENDING_APPROVAL){
+        if (ad?.status !== AdStatus.PENDING_APPROVAL) {
             throw new BadRequestException(`Only ads with PENDING_APPROVAL status can be approved`);
         }
         const planId = ad?.planId;
-        if(!planId){
+        if (!planId) {
             throw new BadRequestException(`Ad does not have a valid plan ID`);
         }
         const plan = await this.planService.getPlanById(planId);
-        if(!plan?.duration || plan.duration <= 0){
+        if (!plan?.duration || plan.duration <= 0) {
             throw new BadRequestException(`Plan does not have a valid duration`);
         }
-        if(ad?.paymentStatus !== PaymentStatus.VERIFIED){
+        if (ad?.paymentStatus !== PaymentStatus.VERIFIED) {
             throw new BadRequestException(`Ad payment is not verified current: ${ad?.paymentStatus})`);
         }
         const startDate = new Date();
@@ -142,7 +142,7 @@ export class AdsService {
             paymentStatus: PaymentStatus.VERIFIED,
             startDate: firestore.FieldValue.serverTimestamp(),
             approvalDate: firestore.FieldValue.serverTimestamp(),
-            
+
         });
         // send notification to salon owner
         if (ad?.salonId) {
@@ -161,7 +161,7 @@ export class AdsService {
         };
     }
 
-    async rejectAd(id: string, reason: string):Promise<any>{
+    async rejectAd(id: string, reason: string): Promise<any> {
         const collection = this.getCollection();
         const docRef = collection.doc(id);
         const doc = await docRef.get();
@@ -229,7 +229,7 @@ export class AdsService {
         };
     }
 
-    async getAdById(id: string): Promise<Ad>{
+    async getAdById(id: string): Promise<Ad> {
         const collection = this.getCollection();
         const docRef = collection.doc(id);
         const doc = await docRef.get();
@@ -247,18 +247,18 @@ export class AdsService {
 
     //* get the ads with approved and verified payment and sort by plan priority and start date
     //todo need to sanitize the add data before sending to client
-     
-    async getAdsByPriority(page: number, limit: number){
+
+    async getAdsByPriority(page: number, limit: number) {
         const collection = this.getCollection();
         const adsSnapshot = await collection.
             where('status', '==', AdStatus.APPROVED).
             where('paymentStatus', '==', PaymentStatus.VERIFIED).
             orderBy('startDate', 'desc').
             get();
-        
-        if(adsSnapshot.empty){
-            return{
-                data:[],
+
+        if (adsSnapshot.empty) {
+            return {
+                data: [],
                 pagination: {
                     currentPage: page,
                     limit: limit,
@@ -294,12 +294,12 @@ export class AdsService {
         const planMap = new Map<string, number>();
         await Promise.all(
             uniquePlanIds.map(async (planId) => {
-                try{
+                try {
                     if (planId) {
                         const plan = await this.planService.getPlanById(planId);
                         planMap.set(planId, plan?.priority ?? 3);
                     }
-                }catch(error){
+                } catch (error) {
                     if (planId) {
                         planMap.set(planId, 3);
                     }
@@ -331,16 +331,16 @@ export class AdsService {
                 totalPages,
                 hasNextPage: page < totalPages,
                 hasPreviousPage: page > 1
-            }  
+            }
         }
     }
-    async getAdsBySalonId(salonId: string): Promise<any[]>{
+    async getAdsBySalonId(salonId: string): Promise<any[]> {
         const collection = this.getCollection();
         const adsSnapshot = await collection.
             where('salonId', '==', salonId).
             orderBy('createdAt', 'desc').
             get();
-        if(adsSnapshot.empty){
+        if (adsSnapshot.empty) {
             return [];
         }
         const ads = adsSnapshot.docs.map(doc => ({
@@ -354,10 +354,10 @@ export class AdsService {
 
         const salonNameMap = await this.getSalonNameMap([salonId]);
         return ads.map(ad => this.mapAdWithSalonName(ad, salonNameMap));
-        
+
     }
-    
-    async getAdsAndPayment(adId: string): Promise<any>{
+
+    async getAdsAndPayment(adId: string): Promise<any> {
         const ad = await this.getAdById(adId);
         const payments = await this.paymentService.getPayamentsByreferenceId(adId);
         const salonNameMap = await this.getSalonNameMap(
@@ -367,7 +367,7 @@ export class AdsService {
             id: adId,
             ...ad,
         }, salonNameMap);
-        
+
         return {
             ad: adWithSalonName,
             payments
@@ -379,20 +379,20 @@ export class AdsService {
         page = 1,
         limit = 10,
         type: 'all' | 'active' | 'pending_approval' | 'rejected' = 'all',
-    ): Promise<any>{
+    ): Promise<any> {
         const collection = this.getCollection();
-        
+
         try {
             const normalizedPage = Number.isNaN(Number(page)) ? 1 : Math.max(1, Number(page));
             const normalizedLimit = Number.isNaN(Number(limit)) ? 10 : Math.min(100, Math.max(1, Number(limit)));
             const normalizedType = type ?? 'all';
             let query: FirebaseFirestore.Query<Ad> = collection;
-            
+
             // Get all ads ordered by creation date (newest first)
             query = query.orderBy('createdAt', 'desc');
-            
+
             const adsSnapshot = await query.get();
-            
+
             if (adsSnapshot.empty) {
                 return {
                     data: [],
@@ -409,7 +409,7 @@ export class AdsService {
                     }
                 };
             }
-            
+
             const ads = adsSnapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()
@@ -481,9 +481,9 @@ export class AdsService {
     }
 
     // Get ads filtered by status
-    async getAdsByStatus(status: string, page?: number, limit?: number): Promise<any>{
+    async getAdsByStatus(status: string, page?: number, limit?: number): Promise<any> {
         const collection = this.getCollection();
-        
+
         try {
             // Validate status is a valid enum value
             if (!Object.values(AdStatus).includes(status as AdStatus)) {
@@ -491,12 +491,12 @@ export class AdsService {
             }
 
             let query: FirebaseFirestore.Query<Ad> = collection;
-            
+
             // Filter by status and order by creation date (newest first)
             query = query.where('status', '==', status).orderBy('createdAt', 'desc');
-            
+
             const adsSnapshot = await query.get();
-            
+
             if (adsSnapshot.empty) {
                 return {
                     data: [],
@@ -511,7 +511,7 @@ export class AdsService {
                     } : undefined
                 };
             }
-            
+
             const ads = adsSnapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()
@@ -538,14 +538,14 @@ export class AdsService {
                     .filter((salonId): salonId is string => Boolean(salonId)),
             );
             const adsWithSalonNames = ads.map(ad => this.mapAdWithSalonName(ad, salonNameMap));
-            
+
             // If pagination parameters are provided, apply pagination
             if (page !== undefined && limit !== undefined) {
                 const totalItems = adsWithSalonNames.length;
                 const totalPages = Math.ceil(totalItems / limit);
                 const offset = (page - 1) * limit;
                 const paginatedAds = adsWithSalonNames.slice(offset, offset + limit);
-                
+
                 return {
                     data: paginatedAds,
                     status: status,
@@ -559,7 +559,7 @@ export class AdsService {
                     }
                 };
             }
-            
+
             // Return all ads without pagination
             return {
                 data: adsWithSalonNames,
@@ -582,7 +582,7 @@ export class AdsService {
         imageUrl?: string[];
         startDate?: Date;
         salonName: string;
-    }>{
+    }> {
         const collection = this.getCollection();
         const docRef = collection.doc(id);
         const doc = await docRef.get();
@@ -614,7 +614,7 @@ export class AdsService {
             salonName: ad.salonId ? salonNameMap.get(ad.salonId) ?? 'Unknown Salon' : 'Unknown Salon',
         };
     }
-    
-    
+
+
 }
 
