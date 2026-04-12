@@ -1,9 +1,9 @@
-import {IsString, IsNotEmpty, IsOptional, IsEnum, IsNumber, ValidateIf} from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsEnum, IsNumber, ValidateIf } from 'class-validator';
 import { AdStatus } from '../enum/adstatus.enum';
 import { PaymentStatus } from '../enum/paymentstat.enum';
 import { PaymentMethod } from '../enum/paymentmethod.enum';
 
-export class AdsCreateDto{
+export class AdsCreateDto {
     @IsString()
     @IsNotEmpty()
     title: string;
@@ -15,6 +15,10 @@ export class AdsCreateDto{
     @IsString({ each: true })
     @IsNotEmpty({ each: true })
     imageUrl: string[];
+
+    @IsString({ each: true })
+    @IsOptional({ each: true })
+    videoUrl?: string[];
 
     @IsString()
     @IsNotEmpty()
@@ -38,7 +42,7 @@ export class AdsCreateDto{
     @IsNotEmpty()
     transactionId?: string;
 
-    
+
 
 
 }

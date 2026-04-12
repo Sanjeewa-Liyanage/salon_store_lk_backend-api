@@ -8,6 +8,7 @@ export class Ad {
     title?: string;
     description?: string;
     imageUrl?: string[];
+    videoUrl?: string[];
     planId?: string;
     salonId?: string;
     status?: AdStatus;
